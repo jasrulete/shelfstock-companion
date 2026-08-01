@@ -1,3 +1,5 @@
+import { enablePush, disablePush, getStoredPushToken, PUSH_TOKEN_KEY } from '../notifications';
+
 const store: Record<string, string> = {};
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn((k: string) => Promise.resolve(store[k] ?? null)),
@@ -22,8 +24,6 @@ jest.mock('expo-notifications', () => ({
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
   AndroidImportance: { DEFAULT: 3 },
 }));
-
-import { enablePush, disablePush, getStoredPushToken, PUSH_TOKEN_KEY } from '../notifications';
 
 const fetchMock = jest.fn();
 // @ts-expect-error global.fetch is assigned during tests

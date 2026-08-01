@@ -7,7 +7,7 @@ const USER_KEY = 'shelfstock_user';
 
 // Cleanup hooks (e.g. push-token unregistration) that must run while the
 // JWT is still valid, before logout clears it.
-export const logoutHandlers: Array<() => Promise<void>> = [];
+export const logoutHandlers: (() => Promise<void>)[] = [];
 
 interface AuthState {
   user: PublicUser | null;
@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           SecureStore.getItemAsync(USER_KEY),
         ]);
         if (token && rawUser) setUser(JSON.parse(rawUser));
+      } catch {
+        // Corrupted stored session (e.g. malformed JSON) — treat as logged out.
       } finally {
         setInitializing(false);
       }

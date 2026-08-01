@@ -1,3 +1,5 @@
+import { api, ApiError, setOnUnauthorized, TOKEN_KEY } from '../client';
+
 const store: Record<string, string> = {};
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn((k: string) => Promise.resolve(store[k] ?? null)),
@@ -10,8 +12,6 @@ jest.mock('expo-secure-store', () => ({
     return Promise.resolve();
   }),
 }));
-
-import { api, ApiError, setOnUnauthorized, TOKEN_KEY } from '../client';
 
 const fetchMock = jest.fn();
 // @ts-expect-error global.fetch is assigned during tests

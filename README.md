@@ -59,7 +59,7 @@ all registered admin devices.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - The [ShelfStock](https://github.com/jasrulete/Shelfstock) backend running
   (Docker Compose is the fastest way — see that repo's README)
 - [Expo Go](https://expo.dev/go) on a device/emulator, or a dev client build

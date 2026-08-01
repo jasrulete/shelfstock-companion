@@ -1,3 +1,7 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AuthProvider } from '../AuthContext';
+import LoginScreen from '../../app/login';
+
 const store: Record<string, string> = {};
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn((k: string) => Promise.resolve(store[k] ?? null)),
@@ -8,10 +12,6 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('expo-router', () => ({ router: { replace: jest.fn() } }));
-
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AuthProvider } from '../AuthContext';
-import LoginScreen from '../../app/login';
 
 const fetchMock = jest.fn();
 // @ts-expect-error global.fetch is assigned during tests

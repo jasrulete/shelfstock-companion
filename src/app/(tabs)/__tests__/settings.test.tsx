@@ -1,3 +1,9 @@
+import { Alert } from 'react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AuthProvider } from '../../../auth/AuthContext';
+import { enablePush } from '../../../notifications';
+import SettingsScreen from '../settings';
+
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
@@ -9,12 +15,6 @@ jest.mock('../../../notifications', () => ({
   disablePush: jest.fn(() => Promise.resolve()),
   getStoredPushToken: jest.fn(() => Promise.resolve(null)),
 }));
-
-import { Alert } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AuthProvider } from '../../../auth/AuthContext';
-import { enablePush } from '../../../notifications';
-import SettingsScreen from '../settings';
 
 beforeEach(() => {
   jest.clearAllMocks();

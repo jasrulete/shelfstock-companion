@@ -1,10 +1,10 @@
+import { lookupBarcode } from '../products';
+
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(),
   deleteItemAsync: jest.fn(),
 }));
-
-import { lookupBarcode } from '../products';
 
 const fetchMock = jest.fn();
 // @ts-expect-error global.fetch is assigned during tests

@@ -1,10 +1,10 @@
-jest.mock('@react-native-community/netinfo', () => ({
-  useNetInfo: jest.fn(),
-}));
-
 import { render, screen } from '@testing-library/react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import OfflineBanner from '../OfflineBanner';
+
+jest.mock('@react-native-community/netinfo', () => ({
+  useNetInfo: jest.fn(),
+}));
 
 const netInfoMock = useNetInfo as jest.Mock;
 

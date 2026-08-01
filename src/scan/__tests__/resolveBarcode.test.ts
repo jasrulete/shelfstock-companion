@@ -1,8 +1,8 @@
-jest.mock('../../api/products', () => ({ lookupBarcode: jest.fn() }));
-
 import { lookupBarcode } from '../../api/products';
 import { ApiError } from '../../api/client';
 import { resolveBarcode } from '../resolveBarcode';
+
+jest.mock('../../api/products', () => ({ lookupBarcode: jest.fn() }));
 
 const lookupMock = lookupBarcode as jest.Mock;
 
