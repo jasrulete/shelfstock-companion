@@ -1,56 +1,135 @@
-# Welcome to your Expo app 👋
+# ShelfStock Companion
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![CI](https://github.com/jasrulete/shelfstock-companion/actions/workflows/ci.yml/badge.svg)](https://github.com/jasrulete/shelfstock-companion/actions/workflows/ci.yml)
 
-## Get started
+An Android companion app for [ShelfStock](https://github.com/jasrulete/Shelfstock)
+admins: manage orders and inventory, get pushed the moment a new order comes
+in, and scan a barcode to pull up (or create) a product — all from a phone.
 
-1. Install dependencies
+## Screenshots
 
-   ```bash
-   npm install
-   ```
+<!-- Add screenshots here: login, orders list, order detail, scanner, and a
+     real push notification, plus a short GIF of scan -> product. -->
 
-2. Start the app
+Screenshots and the scan demo GIF live in [`docs/screenshots/`](docs/screenshots/).
 
-   ```bash
-   npx expo start
-   ```
+## Features
 
-In the output, you'll find options to open the app in a
+- **Order management with a status lifecycle** — view all orders, drill into
+  an order's items and shipping details, and move it through
+  `pending -> shipped -> completed` (or `cancelled`) right from the phone.
+- **New-order push notifications with deep links** — a push fires the moment
+  a customer checks out on the storefront; tapping it opens that order's
+  detail screen directly.
+- **Barcode-scan inventory** — scan a product's barcode with the camera to
+  jump straight to its detail/edit screen, or into the create-product form
+  pre-filled with the scanned code if no match exists.
+- **Offline read caching** — orders and products fetched while online stay
+  available read-only when connectivity drops, with a banner indicating
+  stale/offline data.
+- **Admin-gated login** — logs in against the same ShelfStock accounts as the
+  web admin; non-admin credentials are rejected client-side after auth.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Architecture
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Built with [Expo Router](https://docs.expo.dev/router/introduction/) for
+file-based navigation and [TanStack Query](https://tanstack.com/query/latest)
+as the data layer, backed by `@tanstack/query-async-storage-persister` for
+the offline cache. The app is a thin client over the
+[ShelfStock](https://github.com/jasrulete/Shelfstock) REST API — same
+backend, same admin accounts, same order/product data as the web storefront's
+admin area. Auth uses the existing JWT login endpoint; the token and session
+are stored in `expo-secure-store`.
 
-## Get a fresh project
+## Backend endpoints added
 
-When you're ready, run:
+This app required three additions to the ShelfStock backend (implemented in
+the [ShelfStock](https://github.com/jasrulete/Shelfstock) repo, not here):
+
+| Method | Path                           | Purpose                                                    |
+| ------ | ------------------------------ | ----------------------------------------------------------- |
+| GET    | `/api/products/barcode/:code`  | Look up a product by barcode (admin), for the scan flow.    |
+| POST   | `/api/devices`                 | Register an Expo push token for the logged-in admin.        |
+| DELETE | `/api/devices/:token`          | Unregister a push token (logout / notifications-off).       |
+
+New orders (`POST /api/orders`) additionally trigger a best-effort push to
+all registered admin devices.
+
+## Local development
+
+### Prerequisites
+
+- Node.js 18+
+- The [ShelfStock](https://github.com/jasrulete/Shelfstock) backend running
+  (Docker Compose is the fastest way — see that repo's README)
+- [Expo Go](https://expo.dev/go) on a device/emulator, or a dev client build
+
+### 1. Install dependencies
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Configure environment variables
 
-### Other setup steps
+```bash
+cp .env.example .env
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+`EXPO_PUBLIC_API_URL` is the base URL of the ShelfStock API (no trailing
+slash) — which value to use depends on where you're running the app:
 
-## Learn more
+| Target                            | `EXPO_PUBLIC_API_URL`         |
+| ---------------------------------- | ------------------------------ |
+| Android emulator -> host machine   | `http://10.0.2.2:4000`         |
+| Physical device on the same wifi   | `http://<your-lan-ip>:4000`    |
+| Production                         | your deployed Railway API URL  |
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Start the backend
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+From the [ShelfStock](https://github.com/jasrulete/Shelfstock) repo:
 
-## Join the community
+```bash
+docker compose up -d --build
+```
 
-Join our community of developers creating universal apps.
+### 4. Start the app
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo start
+```
+
+Scan the QR code with Expo Go, or press `a`/`i` to launch an emulator.
+
+## Testing & CI
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # expo lint
+npm test            # jest
+```
+
+CI (see the badge above) runs all three — typecheck, lint, and the Jest
+suite — on every push and pull request.
+
+## Release build
+
+Building and shipping a signed APK is a deferred, execution-time step (not
+run as part of this repo's automated setup):
+
+1. Set your deployed Railway API URL in `eas.json`'s
+   `build.preview.env.EXPO_PUBLIC_API_URL` before building — it ships with
+   the placeholder `https://YOUR-RAILWAY-API-URL` by default.
+2. Build the APK:
+
+   ```bash
+   eas build -p android --profile preview
+   ```
+
+3. Publish it as a GitHub Release:
+
+   ```bash
+   gh release create v1.0.0 ./shelfstock-companion.apk \
+     --title "ShelfStock Companion v1.0.0" \
+     --notes "Admin companion app for ShelfStock: order management with push notifications, barcode-scan inventory, offline read caching. Install the APK on Android 8+."
+   ```
