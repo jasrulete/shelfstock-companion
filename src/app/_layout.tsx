@@ -17,6 +17,7 @@ export default function RootLayout() {
           <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
           <Stack.Screen name="products/[id]" options={{ title: 'Product' }} />
           <Stack.Screen name="products/new" options={{ title: 'New product' }} />
+          <Stack.Screen name="scan" options={{ title: 'Scan barcode' }} />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>

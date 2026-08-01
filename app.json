@@ -34,7 +34,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ShelfStock Companion uses the camera to scan product barcodes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
