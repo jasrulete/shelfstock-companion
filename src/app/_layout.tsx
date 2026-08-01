@@ -14,6 +14,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ title: 'Sign in', headerShown: false }} />
+          <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>
