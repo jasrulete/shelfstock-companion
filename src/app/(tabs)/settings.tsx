@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Button, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../auth/AuthContext';
 import { disablePush, enablePush, getStoredPushToken } from '../../notifications';
@@ -19,9 +19,15 @@ export default function SettingsScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Text style={{ fontSize: 16 }}>New-order notifications</Text>
         <Switch
+          accessibilityLabel="New-order notifications"
           value={pushOn}
           onValueChange={async (next) => {
-            setPushOn(next ? await enablePush() : (await disablePush(), false));
+            try {
+              setPushOn(next ? await enablePush() : (await disablePush(), false));
+            } catch (err) {
+              setPushOn(false);
+              Alert.alert('Could not update notifications', (err as Error).message);
+            }
           }}
         />
       </View>
