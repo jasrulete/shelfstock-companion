@@ -1,12 +1,21 @@
 import { useEffect } from 'react';
 import { router, Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { AuthProvider } from '../auth/AuthContext';
+import OfflineBanner from '../components/OfflineBanner';
+import { wireOnlineManager } from '../offline';
+
+wireOnlineManager();
+
+const persister = createAsyncStoragePersister({ storage: AsyncStorage });
 
 // Module scope: survives fast-refresh, one cache for the app.
 export const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1, gcTime: 24 * 60 * 60 * 1000 } },
 });
 
 export default function RootLayout() {
@@ -19,8 +28,9 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
       <AuthProvider>
+        <OfflineBanner />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ title: 'Sign in', headerShown: false }} />
@@ -30,6 +40,6 @@ export default function RootLayout() {
           <Stack.Screen name="scan" options={{ title: 'Scan barcode' }} />
         </Stack>
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
