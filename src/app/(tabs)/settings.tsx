@@ -1,14 +1,30 @@
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Button, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../auth/AuthContext';
+import { disablePush, enablePush, getStoredPushToken } from '../../notifications';
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
+  const [pushOn, setPushOn] = useState(false);
+
+  useEffect(() => {
+    void getStoredPushToken().then((t) => setPushOn(!!t));
+  }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Signed in as</Text>
       <Text style={styles.email}>{user?.email}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <Text style={{ fontSize: 16 }}>New-order notifications</Text>
+        <Switch
+          value={pushOn}
+          onValueChange={async (next) => {
+            setPushOn(next ? await enablePush() : (await disablePush(), false));
+          }}
+        />
+      </View>
       <Button
         title="Log out"
         onPress={async () => {

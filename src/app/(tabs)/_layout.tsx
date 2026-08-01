@@ -1,10 +1,18 @@
+import { useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../auth/AuthContext';
+import { logoutHandlers, useAuth } from '../../auth/AuthContext';
+import { disablePush, enablePush } from '../../notifications';
 
 export default function TabsLayout() {
   const { user, initializing } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+    void enablePush().catch(() => {}); // declining push must never break the app
+    if (!logoutHandlers.includes(disablePush)) logoutHandlers.push(disablePush);
+  }, [user]);
 
   if (initializing) {
     return (

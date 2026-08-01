@@ -1,4 +1,6 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { router, Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../auth/AuthContext';
 
@@ -8,6 +10,14 @@ export const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const orderId = response.notification.request.content.data?.orderId;
+      if (orderId) router.push(`/orders/${orderId}`);
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
