@@ -64,8 +64,9 @@ repos get unlimited Actions minutes.
 ## Step 2 — Update the production database FIRST (one command)
 
 Your ShelfStock backend now runs **inside the Next.js app on Vercel** with
-a **Neon** Postgres — there is no separate API service. The schema file is
-the migration: it's idempotent, additive, and safe to re-run.
+a **Neon** Postgres — there is no separate API service. Schema changes are
+tracked, ordered migrations (`node-pg-migrate`) under `frontend/migrations/`;
+the companion app's changes are one migration file that runs exactly once.
 
 Grab `DATABASE_URL` from the Vercel project's environment variables (or
 the Neon console), then from the ShelfStock repo:
@@ -84,8 +85,8 @@ until the code arrives.
 
 The port for the new architecture is waiting at
 **https://github.com/jasrulete/Shelfstock/pull/12** (it replaced the
-pre-restructure #2). Once its CI is green and step 2 is done, merge it in
-the GitHub UI or:
+pre-restructure #2) — all checks green and mergeable. Once step 2 is done,
+merge it in the GitHub UI or:
 
 ```bash
 gh pr merge 12 --repo jasrulete/Shelfstock --merge
