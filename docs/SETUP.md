@@ -14,8 +14,8 @@ Releases instead.
 | Expo account + EAS Build | $0 | Free tier ≈ 30 cloud builds/month — plenty |
 | Expo push notification service | $0 | No key, no billing |
 | Firebase (FCM for Android push) | $0 | Spark plan; no credit card needed |
-| Vercel (ShelfStock web, already live) | $0 | Hobby plan |
-| Railway (ShelfStock API, already live) | ⚠️ | Railway has no permanent free tier — it runs on a one-time trial credit, then Hobby is $5/mo. See step 3 for the free fallback if your credit runs out. |
+| Vercel (ShelfStock web + API, already live) | $0 | Hobby plan — the Express API now runs inside the Next.js deployment |
+| Neon (ShelfStock Postgres) | $0 | Free tier |
 | Google Play listing | $25 one-time | **Skipped.** APK on GitHub Releases is the free path. |
 | iOS / App Store | $99/yr | **Skipped.** Out of scope for v1. |
 
@@ -34,13 +34,13 @@ local backend:
 2. Start the backend (from the ShelfStock repo):
    ```bash
    docker compose up -d --build
-   docker compose exec api node scripts/seed-demo-users.js
+   cd frontend && DATABASE_URL=postgres://postgres:postgres@localhost:5433/shelfstock npm run seed-demo-users
    ```
 3. In this repo, point the app at your PC — create `.env`:
    ```bash
    cp .env.example .env
    ```
-   and set `EXPO_PUBLIC_API_URL=http://<your-PC's-LAN-IP>:4000`
+   and set `EXPO_PUBLIC_API_URL=http://<your-PC's-LAN-IP>:3000`
    (find it with `ipconfig`; phone and PC must be on the same wifi).
 4. ```bash
    npm install
@@ -55,62 +55,51 @@ push).
 
 ---
 
-## Step 1 — Publish the mobile repo on GitHub
+## Step 1 — Publish the mobile repo on GitHub ✅ done
 
-From this repo's root (you're on `main`, everything is merged):
+Live at **https://github.com/jasrulete/shelfstock-companion** with CI
+green (typecheck + lint + tests run on every PR and push to main). Public
+repos get unlimited Actions minutes.
 
-```bash
-gh repo create shelfstock-companion --public --source . --push
-```
+## Step 2 — Update the production database FIRST (one command)
 
-CI (`.github/workflows/ci.yml`) runs typecheck + lint + tests on every PR
-and push to main. Verify the first run:
+Your ShelfStock backend now runs **inside the Next.js app on Vercel** with
+a **Neon** Postgres — there is no separate API service. The schema file is
+the migration: it's idempotent, additive, and safe to re-run.
 
-```bash
-gh run watch
-```
-
-The README's CI badge goes green once this passes. Free: public repos get
-unlimited Actions minutes.
-
-## Step 2 — Merge the backend PR
-
-The backend additions are waiting at
-**https://github.com/jasrulete/Shelfstock/pull/2** — CI is already green
-(backend tests, Dockerized E2E, frontend build, Vercel preview). Merge it
-in the GitHub UI, or:
+Grab `DATABASE_URL` from the Vercel project's environment variables (or
+the Neon console), then from the ShelfStock repo:
 
 ```bash
-gh pr merge 2 --repo jasrulete/Shelfstock --merge
+cd frontend && DATABASE_URL="<your-neon-url>" npm run db:setup
 ```
 
-Merging pushes `main`, which auto-deploys the API on Railway.
+**Do this BEFORE merging the PR.** The new code selects the `barcode`
+column explicitly — deploying it against a database that doesn't have the
+column yet would break the product listing until the schema catches up.
+Schema-first has no such window: the extra column and table sit unused
+until the code arrives.
 
-## Step 3 — Run the two database migrations (one time)
+## Step 3 — Merge the backend PR
 
-After the deploy finishes, from the ShelfStock repo:
+The port for the new architecture is waiting at
+**https://github.com/jasrulete/Shelfstock/pull/12** (it replaced the
+pre-restructure #2). Once its CI is green and step 2 is done, merge it in
+the GitHub UI or:
 
 ```bash
-railway run bash -c 'psql "$DATABASE_URL" -f backend/scripts/migrations/001-product-barcode.sql'
-railway run bash -c 'psql "$DATABASE_URL" -f backend/scripts/migrations/002-device-tokens.sql'
+gh pr merge 12 --repo jasrulete/Shelfstock --merge
 ```
 
-(Or copy `DATABASE_URL` from the Railway dashboard and run `psql` directly.
-Both files are idempotent — safe to run twice.)
+Merging auto-deploys on Vercel. Two quick checks afterwards:
 
-Two quick checks while you're in the Railway dashboard:
+- `curl https://shelfstock-jer2x.vercel.app/api/health` → `{"status":"ok"}`
+  (this endpoint touches the DB, so it also proves the schema step).
+- In the Vercel project settings, make sure the **Node.js version is 22.x**
+  — the push library (`expo-server-sdk@7`) wants Node ≥ 22.12.
 
-- **Node version**: the push library (`expo-server-sdk@7`) wants Node ≥ 22.12.
-  If the service runs older Node, add `"engines": { "node": ">=22.12" }` to
-  `backend/package.json` or set the `NIXPACKS_NODE_VERSION` variable.
-- **Verify**: `curl https://<your-api>.railway.app/health` → `{"status":"ok"}`.
-  Note this URL — you need it in steps 4 and 6.
-
-> **If your Railway trial credit is exhausted:** the free-forever fallback
-> is [Render](https://render.com)'s free web service + free Postgres
-> (spins down after inactivity — fine for a portfolio demo), or simply demo
-> everything against the local Docker stack from step 0. The mobile app
-> only cares about `EXPO_PUBLIC_API_URL`.
+Your mobile API URL is simply the Vercel URL:
+`https://shelfstock-jer2x.vercel.app` — you need it in steps 4 and 6.
 
 ## Step 4 — Push notifications (Expo + Firebase, both free)
 
@@ -163,8 +152,8 @@ npx expo run:android
 
 ## Step 5 — The end-to-end test (your phone, ~10 minutes)
 
-With the dev build installed and `.env` pointed at the deployed API (or
-your LAN IP):
+With the dev build installed and `.env` pointed at the deployed API
+(`https://shelfstock-jer2x.vercel.app`) or your LAN IP:
 
 1. Log in as an admin — accept the notification-permission prompt.
 2. Place an order in the web storefront ([shelfstock-jer2x.vercel.app](https://shelfstock-jer2x.vercel.app)).
@@ -185,8 +174,9 @@ screen-recorded GIF of the scan flow is the single most impressive asset.
 
 ## Step 6 — Release APK on GitHub (the free "store")
 
-1. Put your real API URL into `eas.json` → `build.preview.env.EXPO_PUBLIC_API_URL`
-   (it ships with a placeholder). Commit.
+1. Put the API URL (`https://shelfstock-jer2x.vercel.app`) into
+   `eas.json` → `build.preview.env.EXPO_PUBLIC_API_URL` (it ships with a
+   placeholder). Commit.
 2. ```bash
    npx eas-cli build -p android --profile preview
    ```
@@ -219,8 +209,8 @@ Done. Web store + API + mobile app, publicly visible, CI-badged, $0 spent.
 ## If something misbehaves
 
 - **App can't reach the API in Expo Go / dev build:** it's almost always
-  the URL. Emulator → `http://10.0.2.2:4000`; physical phone → PC's LAN IP
-  or the Railway URL. `EXPO_PUBLIC_*` vars are baked at start — restart
+  the URL. Emulator → `http://10.0.2.2:3000`; physical phone → PC's LAN IP
+  or `https://shelfstock-jer2x.vercel.app`. `EXPO_PUBLIC_*` vars are baked at start — restart
   `npx expo start` after editing `.env`.
 - **No push arriving:** confirm you're on a dev build (not Expo Go), on a
   physical device, permission granted, the FCM V1 key is uploaded

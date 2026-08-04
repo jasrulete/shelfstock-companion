@@ -81,9 +81,9 @@ slash) — which value to use depends on where you're running the app:
 
 | Target                            | `EXPO_PUBLIC_API_URL`         |
 | ---------------------------------- | ------------------------------ |
-| Android emulator -> host machine   | `http://10.0.2.2:4000`         |
-| Physical device on the same wifi   | `http://<your-lan-ip>:4000`    |
-| Production                         | your deployed Railway API URL  |
+| Android emulator -> host machine   | `http://10.0.2.2:3000`         |
+| Physical device on the same wifi   | `http://<your-lan-ip>:3000`    |
+| Production                         | `https://shelfstock-jer2x.vercel.app` |
 
 ### 3. Start the backend
 
@@ -117,7 +117,7 @@ suite — on every push and pull request.
 Building and shipping a signed APK is a deferred, execution-time step (not
 run as part of this repo's automated setup):
 
-1. Set your deployed Railway API URL in `eas.json`'s
+1. Set the API URL (`https://shelfstock-jer2x.vercel.app`) in `eas.json`'s
    `build.preview.env.EXPO_PUBLIC_API_URL` before building — it ships with
    the placeholder `https://YOUR-RAILWAY-API-URL` by default.
 2. Build the APK:
