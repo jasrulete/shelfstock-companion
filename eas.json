@@ -8,7 +8,7 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://YOUR-RAILWAY-API-URL" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://shelfstock-jer2x.vercel.app" }
     }
   }
 }
