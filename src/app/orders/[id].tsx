@@ -2,6 +2,7 @@ import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } 
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { statusActions, useOrder, useUpdateOrderStatus } from '../../api/orders';
 import type { OrderStatus } from '../../api/types';
+import RequireAuth from '../../auth/RequireAuth';
 
 const ACTION_LABELS: Record<OrderStatus, string> = {
   pending: 'Mark pending',
@@ -11,6 +12,14 @@ const ACTION_LABELS: Record<OrderStatus, string> = {
 };
 
 export default function OrderDetailScreen() {
+  return (
+    <RequireAuth>
+      <OrderDetailContent />
+    </RequireAuth>
+  );
+}
+
+function OrderDetailContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const orderId = Number(id);
   const { data: order, isLoading, isError, error } = useOrder(orderId);
