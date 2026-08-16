@@ -2,8 +2,17 @@ import { ActivityIndicator, Alert, Text } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useProduct, useUpdateProduct } from '../../api/products';
 import ProductForm from '../../products/ProductForm';
+import RequireAuth from '../../auth/RequireAuth';
 
 export default function EditProductScreen() {
+  return (
+    <RequireAuth>
+      <EditProductContent />
+    </RequireAuth>
+  );
+}
+
+function EditProductContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const productId = Number(id);
   const { data: product, isLoading, isError, error } = useProduct(productId);

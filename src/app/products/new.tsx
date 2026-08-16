@@ -2,8 +2,17 @@ import { Alert } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCreateProduct } from '../../api/products';
 import ProductForm from '../../products/ProductForm';
+import RequireAuth from '../../auth/RequireAuth';
 
 export default function NewProductScreen() {
+  return (
+    <RequireAuth>
+      <NewProductContent />
+    </RequireAuth>
+  );
+}
+
+function NewProductContent() {
   const { barcode } = useLocalSearchParams<{ barcode?: string }>();
   const mutation = useCreateProduct();
 

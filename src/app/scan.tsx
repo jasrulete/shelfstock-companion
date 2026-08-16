@@ -3,8 +3,17 @@ import { Button, Linking, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Stack } from 'expo-router';
 import { resolveBarcode } from '../scan/resolveBarcode';
+import RequireAuth from '../auth/RequireAuth';
 
 export default function ScanScreen() {
+  return (
+    <RequireAuth>
+      <ScanContent />
+    </RequireAuth>
+  );
+}
+
+function ScanContent() {
   const [permission, requestPermission] = useCameraPermissions();
   const [error, setError] = useState<string | null>(null);
   const busyRef = useRef(false); // onBarcodeScanned fires repeatedly; gate to one lookup
