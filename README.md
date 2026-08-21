@@ -24,9 +24,12 @@ Screenshots and the scan demo GIF live in [`docs/screenshots/`](docs/screenshots
 - **Barcode-scan inventory** — scan a product's barcode with the camera to
   jump straight to its detail/edit screen, or into the create-product form
   pre-filled with the scanned code if no match exists.
-- **Offline read caching** — orders and products fetched while online stay
-  available read-only when connectivity drops, with a banner indicating
-  stale/offline data.
+- **Offline read caching** — products fetched while online stay available
+  read-only when connectivity drops, with a banner indicating stale/offline
+  data. Orders are cached in memory for the session but deliberately never
+  written to disk: AsyncStorage is not encrypted, and every order shape carries
+  the customer's name, phone number and address. Losing the offline order list
+  is the better half of that trade.
 - **Admin-gated login** — logs in against the same ShelfStock accounts as the
   web admin; non-admin credentials are rejected client-side after auth.
 
