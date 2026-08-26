@@ -195,17 +195,27 @@ Done. Web store + API + mobile app, publicly visible, CI-badged, $0 spent.
 
 ---
 
-## Known v1 tradeoffs (tracked for a fast follow-up)
+## Known v1 tradeoffs
 
-- Clearing a nullable field (e.g. barcode) in the product edit form
-  silently keeps the old value — backend PUT uses COALESCE. Needs explicit
-  null support server-side or a form-side guard.
-- Deep-link screens (`/orders/[id]`, `/products/*`, `/scan`) show a raw
-  401 message instead of redirecting to login when opened logged-out
-  (server still enforces auth — UX only).
-- A registered device keeps receiving pushes if its user's admin role is
-  later revoked, until it logs out.
-- Orders list caps at 50 (no pagination yet).
+Three of the four originally listed here are now closed. Kept, struck through,
+because "was this ever fixed?" is a question this section should answer.
+
+- ~~Clearing a nullable field (e.g. barcode) in the product edit form silently
+  keeps the old value — backend PUT uses COALESCE.~~ **Fixed** —
+  [Shelfstock#16](https://github.com/jasrulete/Shelfstock/pull/16).
+- ~~Deep-link screens (`/orders/[id]`, `/products/*`, `/scan`) show a raw 401
+  message instead of redirecting to login when opened logged-out.~~ **Fixed** —
+  [#1](https://github.com/jasrulete/shelfstock-companion/pull/1).
+- ~~A registered device keeps receiving pushes if its user's admin role is
+  later revoked, until it logs out.~~ **Fixed** — recipients are now resolved by
+  joining `users` at send time
+  ([Shelfstock#19](https://github.com/jasrulete/Shelfstock/pull/19)), and
+  `DeviceNotRegistered` tickets prune dead tokens.
+- **Still open:** the orders list caps at 50 with no pagination.
+
+The current picture of what is deliberate and what is outstanding lives in
+[ARCHITECTURE.md](ARCHITECTURE.md) and in the server repo's
+[SECURITY.md](https://github.com/jasrulete/Shelfstock/blob/main/docs/SECURITY.md#3-known-weaknesses).
 
 ## If something misbehaves
 
