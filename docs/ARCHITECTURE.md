@@ -143,6 +143,18 @@ one.
 The same applies to gallery images on the web side, which is the bug this rule
 generalises from.
 
+### C-INV-8 — Stock moves by delta through `adjust-stock`, never by PUT
+
+The inventory stepper calls `POST /api/products/:id/adjust-stock` with
+`{ delta, source: 'companion' }`. It must never read the count, add one and
+PUT it back: that swallows any order that decremented the same product between
+the read and the write. The server applies the delta under the row lock and
+answers with its own count, which replaces ours. A `409` means it refused; the
+row goes back to where it was, with an error buzz.
+
+*Enforced by:* `src/app/(tabs)/__tests__/inventory.test.tsx`. Server side:
+[INV-13](https://github.com/jasrulete/Shelfstock/blob/main/docs/ARCHITECTURE.md#inv-13--every-change-to-productsstock-writes-a-ledger-row-in-the-same-transaction).
+
 ## 4. Known drift
 
 **`src/api/orders.ts`'s `statusActions()` is a copy of the server's order
@@ -167,7 +179,7 @@ the server serves `allowed_transitions`, this app renders from it, and
 
 ## 5. Testing
 
-19 tests across 9 Jest suites: `npm test`, `npm run typecheck`, `npm run lint`.
+`npm test` (Jest; it prints the current count), `npm run typecheck`, `npm run lint`.
 CI runs all three.
 
 `jest.testTimeout` is deliberately raised — CI is always a cold cache, and the

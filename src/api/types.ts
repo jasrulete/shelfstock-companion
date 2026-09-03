@@ -18,6 +18,16 @@ export interface Product {
   created_at: string;
 }
 
+/** One row of the server's stock ledger. `source` says which path moved the number. */
+export interface StockAdjustment {
+  id: number;
+  delta: number;
+  new_stock: number;
+  source: 'web-admin' | 'companion' | 'order' | 'cancel';
+  note: string | null;
+  created_at: string;
+}
+
 export type OrderStatus = 'pending' | 'shipped' | 'completed' | 'cancelled';
 
 export interface Order {
