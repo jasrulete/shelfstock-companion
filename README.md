@@ -44,6 +44,15 @@ backend, same admin accounts, same order/product data as the web storefront's
 admin area. Auth uses the existing JWT login endpoint; the token and session
 are stored in `expo-secure-store`.
 
+📐 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** is the source of truth for
+this app: its structure, the seven invariants that must not be broken, and the
+one place it has drifted from the server.
+
+**The server repository owns the API contract.** When this app disagrees with
+[Shelfstock/docs/API.md](https://github.com/jasrulete/Shelfstock/blob/main/docs/API.md),
+this app is wrong. Cross-repo decisions live in
+[Shelfstock/docs/adr/](https://github.com/jasrulete/Shelfstock/tree/main/docs/adr).
+
 ## Backend endpoints added
 
 This app required three additions to the ShelfStock backend (implemented in
