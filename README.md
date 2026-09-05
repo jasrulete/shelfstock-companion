@@ -24,6 +24,10 @@ Screenshots and the scan demo GIF live in [`docs/screenshots/`](docs/screenshots
 - **Barcode-scan inventory** — scan a product's barcode with the camera to
   jump straight to its detail/edit screen, or into the create-product form
   pre-filled with the scanned code if no match exists.
+- **Scan-to-verify packing** — open a pending order, point the camera at each
+  item as you pack: lines tick off, a wrong code is refused, and "Mark
+  shipped" unlocks only when the box matches the order. "Ship anyway" is the
+  explicit override, and it tells the server what it skipped.
 - **Offline read caching** — products fetched while online stay available
   read-only when connectivity drops, with a banner indicating stale/offline
   data. Orders are cached in memory for the session but deliberately never

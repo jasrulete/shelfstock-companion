@@ -61,6 +61,8 @@ export interface OrderItem {
   quantity: number;
   price_at_purchase: string;
   product_name: string;
+  /** Only for an admin token (INV-8). Null when the product has no code; the pack screen cannot scan those lines. */
+  barcode?: string | null;
 }
 
 export interface OrderDetail extends Order {

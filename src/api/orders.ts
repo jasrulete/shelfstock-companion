@@ -48,10 +48,12 @@ export function useOrder(id: number) {
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: OrderStatus }) =>
+    // `note` is what the pack screen's "Ship anyway" skipped; the server logs
+    // it and never stores it.
+    mutationFn: ({ id, status, note }: { id: number; status: OrderStatus; note?: string }) =>
       api<Order>(`/api/orders/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(note ? { note } : {}) }),
       }),
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
