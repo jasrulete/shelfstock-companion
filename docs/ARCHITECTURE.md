@@ -157,14 +157,25 @@ row goes back to where it was, with an error buzz.
 
 ## 4. Known drift
 
-**`src/api/orders.ts`'s `statusActions()` is a copy of the server's order
-lifecycle, and it has drifted.**
+**Resolved 2026-09-05.** `src/api/orders.ts` used to carry `statusActions()`,
+a copy of the server's order lifecycle, and it had drifted:
 
 | | |
 |---|---|
 | Server | `pending → ['shipped', 'completed', 'cancelled']` |
-| This app | `pending → ['shipped', 'cancelled']` |
-| The test | `src/api/__tests__/orders.test.ts` **asserts the drifted value** |
+| This app, until 2026-09-05 | `pending → ['shipped', 'cancelled']` |
+| The test | `src/api/__tests__/orders.test.ts` **asserted the drifted value** |
+
+The fix was not to correct the copy. Per ADR-0007 the server now sends
+`allowed_transitions` on every order payload, and the order screen renders
+exactly that through `transitionsFor()`. One fallback matrix remains, for a
+server older than that decision; the screen marks anything drawn from it
+"Actions may be out of date", so a fallback button is visibly not one the
+server vouched for. `statusActions` and its test are gone, and
+`src/app/orders/__tests__/orderDetail.test.tsx` asserts the screen offers only
+what the server listed — even when a local guess would offer more.
+
+What it looked like while it lasted, kept for the record:
 
 A green test is holding the bug in place. The consequence is real: a same-day
 cash-on-delivery handover — the normal case for this store — cannot be

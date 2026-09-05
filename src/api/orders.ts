@@ -2,17 +2,31 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type { Order, OrderDetail, OrderStatus, OrdersListResponse } from './types';
 
-// Client-side mirror of the backend lifecycle (cancelled is terminal
-// server-side; completed is left terminal here to keep the UI honest).
-export function statusActions(status: OrderStatus): OrderStatus[] {
-  switch (status) {
-    case 'pending':
-      return ['shipped', 'cancelled'];
-    case 'shipped':
-      return ['completed', 'cancelled'];
-    default:
-      return [];
+/**
+ * The server serves the order lifecycle (ADR-0007): every order payload
+ * carries `allowed_transitions`, and the phone renders exactly that.
+ *
+ * FALLBACK exists for one case - a server older than that decision, which
+ * sends no such field - and the screen marks its output stale, so a button
+ * drawn from it is visibly not one the server vouched for. It is the last
+ * copy of the matrix in this repo, and it must never be consulted while the
+ * server has answered: the previous copy drifted (it lacked
+ * pending -> completed) and a green test held the drift in place.
+ */
+const FALLBACK: Record<OrderStatus, OrderStatus[]> = {
+  pending: ['shipped', 'completed', 'cancelled'],
+  shipped: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+export function transitionsFor(
+  order: Pick<Order, 'status' | 'allowed_transitions'>
+): { actions: OrderStatus[]; stale: boolean } {
+  if (Array.isArray(order.allowed_transitions)) {
+    return { actions: order.allowed_transitions, stale: false };
   }
+  return { actions: FALLBACK[order.status] ?? [], stale: true };
 }
 
 export function useOrders(status?: OrderStatus) {

@@ -45,8 +45,8 @@ admin area. Auth uses the existing JWT login endpoint; the token and session
 are stored in `expo-secure-store`.
 
 📐 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** is the source of truth for
-this app: its structure, the eight invariants that must not be broken, and the
-one place it has drifted from the server.
+this app: its structure, the eight invariants that must not be broken, and how
+it once drifted from the server and what stops that now.
 
 **The server repository owns the API contract.** When this app disagrees with
 [Shelfstock/docs/API.md](https://github.com/jasrulete/Shelfstock/blob/main/docs/API.md),

@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { router, Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { AuthProvider, logoutHandlers } from '../auth/AuthContext';
 import OfflineBanner from '../components/OfflineBanner';
+import { wireNotificationRefresh } from '../notificationRefresh';
 import { wireOnlineManager } from '../offline';
 import { clearPersistedCache, persistOptions, queryClient } from '../queryClient';
 
@@ -20,13 +23,20 @@ wireOnlineManager();
 if (!logoutHandlers.includes(clearPersistedCache)) logoutHandlers.push(clearPersistedCache);
 
 export default function RootLayout() {
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const orderId = response.notification.request.content.data?.orderId;
-      if (orderId) router.push(`/orders/${orderId}`);
-    });
-    return () => sub.remove();
-  }, []);
+  // A tapped notification opens its order (id validated first), an arrival
+  // while the app is open refetches the list, and AppState drives TanStack's
+  // focus so stale queries refetch on return. See notificationRefresh.ts.
+  useEffect(
+    () =>
+      wireNotificationRefresh({
+        notifications: Notifications,
+        appState: AppState,
+        queryClient,
+        router,
+        focusManager,
+      }),
+    []
+  );
 
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
