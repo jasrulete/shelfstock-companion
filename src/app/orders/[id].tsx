@@ -1,5 +1,5 @@
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { transitionsFor, useOrder, useUpdateOrderStatus } from '../../api/orders';
 import type { OrderStatus } from '../../api/types';
 import RequireAuth from '../../auth/RequireAuth';
@@ -77,6 +77,9 @@ function OrderDetailContent() {
       </Text>
 
       <View style={styles.actions}>
+        {order.status === 'pending' && (
+          <Button title="Pack & verify" onPress={() => router.push(`/pack/${order.id}`)} />
+        )}
         {stale && (
           <Text style={styles.stale} accessibilityRole="alert">
             Actions may be out of date — the server did not say which are allowed.

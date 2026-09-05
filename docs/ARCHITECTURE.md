@@ -27,6 +27,9 @@ An admin walking around a stockroom with a phone. Three jobs:
 1. **Know a new order arrived**, immediately, without watching a dashboard.
 2. **Move an order through its lifecycle** without going back to a desk.
 3. **Find or create a product by scanning its barcode**, instead of typing.
+4. **Verify a box against its order by scanning each item** before marking it
+   shipped — lines tick off, a wrong code is refused, and "Mark shipped"
+   unlocks only when the box matches. "Ship anyway" is the explicit override.
 
 Everything else is in service of those. The web admin area already exists and
 is better at anything that involves a keyboard.
@@ -44,6 +47,7 @@ src/
       inventory.tsx         products, with search
       settings.tsx          push toggle, logout
     orders/[id].tsx         order detail + lifecycle actions
+    pack/[id].tsx           scan-to-verify before shipping
     products/[id].tsx       product detail/edit
     products/new.tsx
     scan.tsx                camera + barcode resolution
@@ -59,6 +63,7 @@ src/
   offline.ts                wires TanStack's onlineManager to connectivity
   notifications.ts          Expo push registration
   products/ProductForm.tsx  shared create/edit form
+  pack/packState.ts         scan-to-verify logic, pure, camera taken out
   scan/resolveBarcode.ts    scanned code -> existing product or create flow
 ```
 
