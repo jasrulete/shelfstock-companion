@@ -42,6 +42,12 @@ export interface Order {
   shipping_address: string | null;
   shipping_city: string | null;
   created_at: string;
+  /**
+   * The statuses the server will accept next, served on every order payload
+   * (ADR-0007). Optional only because a server older than that decision sends
+   * nothing; `transitionsFor()` falls back and says so.
+   */
+  allowed_transitions?: OrderStatus[];
 }
 
 export interface OrderListItem extends Order {

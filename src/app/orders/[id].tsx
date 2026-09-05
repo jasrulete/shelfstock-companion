@@ -1,6 +1,6 @@
 import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { statusActions, useOrder, useUpdateOrderStatus } from '../../api/orders';
+import { transitionsFor, useOrder, useUpdateOrderStatus } from '../../api/orders';
 import type { OrderStatus } from '../../api/types';
 import RequireAuth from '../../auth/RequireAuth';
 
@@ -46,6 +46,10 @@ function OrderDetailContent() {
   if (isError || !order)
     return <Text style={[styles.center, styles.error]}>{(error as Error)?.message ?? 'Not found'}</Text>;
 
+  // Buttons come from the server's answer, not from a local copy of the
+  // lifecycle (ADR-0007). `stale` is the one case the server sent nothing.
+  const { actions, stale } = transitionsFor(order);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Stack.Screen options={{ title: `Order #${order.id}` }} />
@@ -73,7 +77,12 @@ function OrderDetailContent() {
       </Text>
 
       <View style={styles.actions}>
-        {statusActions(order.status).map((next) => (
+        {stale && (
+          <Text style={styles.stale} accessibilityRole="alert">
+            Actions may be out of date — the server did not say which are allowed.
+          </Text>
+        )}
+        {actions.map((next) => (
           <Button
             key={next}
             title={ACTION_LABELS[next]}
@@ -97,4 +106,5 @@ const styles = StyleSheet.create({
   itemName: { flexShrink: 1, paddingRight: 8 },
   total: { fontWeight: '700' },
   actions: { marginTop: 24, gap: 10 },
+  stale: { color: '#8a6d3b', fontSize: 12 },
 });
