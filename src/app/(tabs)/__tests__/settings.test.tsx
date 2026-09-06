@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AuthProvider } from '../../../auth/AuthContext';
-import { enablePush } from '../../../notifications';
+import { enablePush, getPushPermissionState } from '../../../notifications';
 import SettingsScreen from '../settings';
 
 jest.mock('expo-secure-store', () => ({
@@ -14,10 +14,40 @@ jest.mock('../../../notifications', () => ({
   enablePush: jest.fn(),
   disablePush: jest.fn(() => Promise.resolve()),
   getStoredPushToken: jest.fn(() => Promise.resolve(null)),
+  getPushPermissionState: jest.fn(() => Promise.resolve('granted')),
 }));
+
 
 beforeEach(() => {
   jest.clearAllMocks();
+});
+
+it('says so, and points at system settings, when notifications are blocked by the OS', async () => {
+  (getPushPermissionState as jest.Mock).mockResolvedValueOnce('blocked');
+
+  await render(
+    <AuthProvider>
+      <SettingsScreen />
+    </AuthProvider>
+  );
+
+  expect(await screen.findByText(/turned off for this app in system settings/)).toBeTruthy();
+  expect(screen.getByText('Open settings')).toBeTruthy();
+  const toggle = screen.getByLabelText('New-order notifications');
+  expect(toggle.props.disabled ?? toggle.props.accessibilityState?.disabled).toBe(true);
+});
+
+it('shows no system-settings notice when the OS permission is merely undecided', async () => {
+  (getPushPermissionState as jest.Mock).mockResolvedValueOnce('undetermined');
+
+  await render(
+    <AuthProvider>
+      <SettingsScreen />
+    </AuthProvider>
+  );
+
+  await screen.findByLabelText('New-order notifications');
+  expect(screen.queryByText('Open settings')).toBeNull();
 });
 
 it('keeps the toggle off and alerts the user when enabling push rejects', async () => {

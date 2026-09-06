@@ -20,7 +20,9 @@ Screenshots and the scan demo GIF live in [`docs/screenshots/`](docs/screenshots
   `pending -> shipped -> completed` (or `cancelled`) right from the phone.
 - **New-order push notifications with deep links** — a push fires the moment
   a customer checks out on the storefront; tapping it opens that order's
-  detail screen directly.
+  detail screen directly. The switch in Settings is remembered across
+  launches, and when the OS has blocked notifications the screen says so and
+  offers the way to system settings.
 - **Barcode-scan inventory** — scan a product's barcode with the camera to
   jump straight to its detail/edit screen, or into the create-product form
   pre-filled with the scanned code if no match exists.
