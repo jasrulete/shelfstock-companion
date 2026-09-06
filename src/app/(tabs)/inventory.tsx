@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useLowStock } from '../../api/analytics';
-import { useAdjustStock, useProducts } from '../../api/products';
+import { newRequestId, useAdjustStock, useProducts, useStockActivity } from '../../api/products';
 import type { Product } from '../../api/types';
 import { useDebouncedValue } from '../../useDebouncedValue';
 
@@ -65,20 +65,19 @@ export default function InventoryScreen() {
 
 function ProductRow({ product }: { product: Product }) {
   const low = product.stock <= 5;
-  const adjust = useAdjustStock();
+  const adjust = useAdjustStock(product.id);
+  const { pendingDelta, refusal } = useStockActivity(product.id);
+  // The projected count: what the shelf will read once every queued press
+  // lands. The cached count is the server's, and includes none of them.
+  const projected = product.stock + pendingDelta;
 
   // Haptics are fire-and-forget. A device without a motor rejects the call,
   // and that must never surface as a failure on a stock change that succeeded.
+  // The error buzz lives in adjustStockOptions, so a press refused on replay
+  // buzzes too.
   const step = (delta: number) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    adjust.mutate(
-      { id: product.id, delta },
-      {
-        onError: () => {
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        },
-      }
-    );
+    adjust.mutate({ id: product.id, delta, requestId: newRequestId() });
   };
 
   return (
@@ -90,21 +89,37 @@ function ProductRow({ product }: { product: Product }) {
         </View>
         <View style={styles.rowRight}>
           <Text>${product.price}</Text>
+          {/* Always the server's number. A press it has not confirmed is drawn
+              beside it, never folded into it, so a list restored from disk
+              cannot claim a count the server never sent. */}
           <Text style={[styles.stock, low && styles.lowStock]}>{product.stock} in stock</Text>
+          {pendingDelta !== 0 && (
+            <Text style={styles.pending}>{`${pendingDelta > 0 ? '+' : ''}${pendingDelta} pending`}</Text>
+          )}
+          {/* A 409 names the count it refused against; once the count has moved
+              on, the notice has nothing left to say. */}
+          {refusal && (refusal.stock === null || refusal.stock === product.stock) && (
+            <Text style={styles.refused} accessibilityRole="alert">
+              {`${refusal.refused ? 'Refused' : 'Not applied'}: ${refusal.message}`}
+            </Text>
+          )}
         </View>
       </Pressable>
-      {/* 48dp targets: this is pressed with a thumb while holding a box. */}
+      {/* 48dp targets: this is pressed with a thumb while holding a box. A
+          paused press holds nothing up - the next one queues behind it. The
+          minus button gates on the projected count so a run of queued -1s
+          never asks the server for one it will refuse. */}
       <View style={styles.stepper}>
         <StepButton
           icon="remove"
           label={`Decrease stock of ${product.name}`}
-          disabled={product.stock <= 0 || adjust.isPending}
+          disabled={projected <= 0}
           onPress={() => step(-1)}
         />
         <StepButton
           icon="add"
           label={`Increase stock of ${product.name}`}
-          disabled={adjust.isPending}
+          disabled={false}
           onPress={() => step(1)}
         />
       </View>
@@ -151,6 +166,8 @@ const styles = StyleSheet.create({
   rowRight: { alignItems: 'flex-end' },
   stock: { color: '#666', fontSize: 12 },
   lowStock: { color: '#c0392b', fontWeight: '700' },
+  pending: { color: '#2c3e50', fontSize: 12, fontWeight: '600' },
+  refused: { color: '#c0392b', fontSize: 12, textAlign: 'right', maxWidth: 170 },
   stepper: { flexDirection: 'row', paddingRight: 6 },
   stepButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   stepDisabled: { opacity: 0.4 },

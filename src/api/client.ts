@@ -4,7 +4,16 @@ import { API_URL } from './config';
 export const TOKEN_KEY = 'shelfstock_jwt';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  /**
+   * `body` is the parsed error body when the server sent JSON, `{}` otherwise.
+   * A 409 from adjust-stock carries `{ error, stock }` - the count it refused
+   * against - so the stepper can land on the server's number without a refetch.
+   */
+  constructor(
+    public status: number,
+    message: string,
+    public body: unknown = {}
+  ) {
     super(message);
     this.name = 'ApiError';
   }
@@ -30,7 +39,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`, body);
   }
   return (await res.json()) as T;
 }
