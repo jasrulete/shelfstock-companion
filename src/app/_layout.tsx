@@ -6,11 +6,13 @@ import { focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { AuthProvider, logoutHandlers } from '../auth/AuthContext';
 import OfflineBanner from '../components/OfflineBanner';
+import QueuedBanner from '../components/QueuedBanner';
 import { wireNotificationRefresh } from '../notificationRefresh';
-import { wireOnlineManager } from '../offline';
+import { resumeQueuedWrites, wireOfflineQueue, wireOnlineManager } from '../offline';
 import { clearPersistedCache, persistOptions, queryClient } from '../queryClient';
 
 wireOnlineManager();
+wireOfflineQueue(queryClient);
 
 // Registered the same way (tabs)/_layout.tsx registers disablePush, rather
 // than imported into AuthContext: that would pull AsyncStorage into every
@@ -39,9 +41,14 @@ export default function RootLayout() {
   );
 
   return (
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+      onSuccess={() => resumeQueuedWrites(queryClient)}
+    >
       <AuthProvider>
         <OfflineBanner />
+        <QueuedBanner />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ title: 'Sign in', headerShown: false }} />
