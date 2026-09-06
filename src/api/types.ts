@@ -69,7 +69,7 @@ export interface OrderDetail extends Order {
   items: OrderItem[];
 }
 
-export interface Paginated<T> {
+export interface Paginated {
   pagination: { page: number; limit: number; total: number; totalPages: number };
   // list key differs per endpoint; endpoints declare their own full shape
   [key: string]: unknown;
@@ -77,10 +77,10 @@ export interface Paginated<T> {
 
 export interface OrdersListResponse {
   orders: OrderListItem[];
-  pagination: Paginated<never>['pagination'];
+  pagination: Paginated['pagination'];
 }
 
 export interface ProductsListResponse {
   products: Product[];
-  pagination: Paginated<never>['pagination'];
+  pagination: Paginated['pagination'];
 }
