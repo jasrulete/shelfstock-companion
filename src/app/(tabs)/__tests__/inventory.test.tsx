@@ -307,6 +307,37 @@ describe('inventory stepper, offline', () => {
     expect(screen.getByLabelText('Decrease stock of Widget').props.accessibilityState?.disabled).toBe(false);
   });
 
+  it('a refusal in the middle of a queue yields to the press that lands after it', async () => {
+    // First press refused with no count in the body (so only the "a later
+    // press landed" rule can clear the notice), second press applied.
+    let calls = 0;
+    fakeServer(1, (delta, stock) => {
+      calls += 1;
+      return calls === 1
+        ? Promise.resolve(jsonResponse(409, { error: 'Insufficient stock' }))
+        : Promise.resolve(jsonResponse(200, { stock, adjustment: { ...adjustment, delta, new_stock: stock } }));
+    });
+    await renderInventory();
+    await screen.findByText('1 in stock');
+
+    await setOnline(false);
+    await fireEvent.press(screen.getByLabelText('Decrease stock of Widget'));
+    expect(await screen.findByText('-1 pending')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Increase stock of Widget'));
+    // Two presses queued that cancel out: nothing to annotate, nothing sent.
+    await waitFor(() => expect(screen.queryByText(/pending/)).toBeNull());
+    expect(posts()).toHaveLength(0);
+
+    await setOnline(true);
+    await waitFor(() => expect(posts()).toHaveLength(2));
+    expect(await screen.findByText('1 in stock')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(/pending/)).toBeNull());
+    // The refusal was real and buzzed, but the count has since moved on
+    // through a later press; the notice has nothing left to say.
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith('error');
+    await waitFor(() => expect(screen.queryByText(/Refused|Not applied/)).toBeNull());
+  });
+
   it('after a relaunch, a queued press the server refuses lands on the server count, says why, and buzzes', async () => {
     // The persister has restored a list holding the server's 3 and one paused
     // -1 press; no hook has ever observed this mutation.
