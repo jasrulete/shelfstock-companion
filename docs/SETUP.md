@@ -61,7 +61,7 @@ Live at **https://github.com/jasrulete/shelfstock-companion** with CI
 green (typecheck + lint + tests run on every PR and push to main). Public
 repos get unlimited Actions minutes.
 
-## Step 2 — Update the production database FIRST (one command)
+## Step 2 — Update the production database FIRST (one command) — ✅ done 2026-08-04
 
 Your ShelfStock backend now runs **inside the Next.js app on Vercel** with
 a **Neon** Postgres — there is no separate API service. Schema changes are
@@ -75,18 +75,25 @@ the Neon console), then from the ShelfStock repo:
 cd frontend && DATABASE_URL="<your-neon-url>" npm run db:setup
 ```
 
+> **Historical.** This ran on 2026-08-04. Later schema changes go through
+> `npx node-pg-migrate up --no-check-order` against the **direct** Neon
+> string — the pooler does not support the advisory lock the tool takes.
+> The current procedure, with what to check afterwards, is
+> [OWNER-RUNBOOK.md](https://github.com/jasrulete/Shelfstock/blob/main/docs/OWNER-RUNBOOK.md)
+> task 1 in the ShelfStock repo.
+
 **Do this BEFORE merging the PR.** The new code selects the `barcode`
 column explicitly — deploying it against a database that doesn't have the
 column yet would break the product listing until the schema catches up.
 Schema-first has no such window: the extra column and table sit unused
 until the code arrives.
 
-## Step 3 — Merge the backend PR
+## Step 3 — Merge the backend PR — ✅ done 2026-08-04
 
-The port for the new architecture is waiting at
+The port for the new architecture was at
 **https://github.com/jasrulete/Shelfstock/pull/12** (it replaced the
-pre-restructure #2) — all checks green and mergeable. Once step 2 is done,
-merge it in the GitHub UI or:
+pre-restructure #2), and it merged on 2026-08-04. The command is kept as the
+shape of the step: once step 2 is done, merge in the GitHub UI or:
 
 ```bash
 gh pr merge 12 --repo jasrulete/Shelfstock --merge
@@ -166,7 +173,14 @@ With the dev build installed and `.env` pointed at the deployed API
    create-product screen opens with the code prefilled → save it →
    scan the same item again → its edit screen opens.
 7. Airplane mode → kill and reopen the app → orange offline banner shows
-   and your cached orders/products still render.
+   and your cached **products** still render. Orders do not: they are never
+   written to disk, because every order shape carries the customer's name,
+   phone and address (C-INV-2, ADR-0004). That is the trade, not a bug.
+8. Still in airplane mode → press **+** on an inventory row → the count stays
+   the server's number with `+1 pending` beside it and a blue "queued" banner
+   at the top → kill and reopen the app, still offline → the press is still
+   queued → turn airplane mode off → it sends and the row lands on the
+   server's count.
 
 While you're here, **take the screenshots** for the README: login, orders
 list, order detail, the scanner, and a real push notification. Drop them
@@ -175,9 +189,9 @@ screen-recorded GIF of the scan flow is the single most impressive asset.
 
 ## Step 6 — Release APK on GitHub (the free "store")
 
-1. Put the API URL (`https://shelfstock-jer2x.vercel.app`) into
-   `eas.json` → `build.preview.env.EXPO_PUBLIC_API_URL` (it ships with a
-   placeholder). Commit.
+1. Check the API URL in `eas.json` → `build.preview.env.EXPO_PUBLIC_API_URL`.
+   It is already `https://shelfstock-jer2x.vercel.app`, baked into the binary
+   at build time — a change here means a rebuild, not a setting.
 2. ```bash
    npx eas-cli build -p android --profile preview
    ```
@@ -186,7 +200,7 @@ screen-recorded GIF of the scan flow is the single most impressive asset.
 3. ```bash
    git tag v1.0.0
    git push --tags
-   gh release create v1.0.0 ./shelfstock-companion.apk --title "ShelfStock Companion v1.0.0" --notes "Admin companion app for ShelfStock: order management with push notifications, barcode-scan inventory, offline read caching. Android 8+."
+   gh release create v1.0.0 ./shelfstock-companion.apk --title "ShelfStock Companion v1.0.0" --notes "Admin companion app for ShelfStock: order management with push notifications, barcode-scan inventory, offline read caching and an offline write queue. Android 8+."
    ```
 4. Link the release from the README so recruiters can install it in two
    taps.
