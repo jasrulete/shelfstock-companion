@@ -1,5 +1,6 @@
 import { QueryClient, dehydrate, hydrate, onlineManager } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { RETRY_DELAY_MS } from '../api/products';
 import { resumeQueuedWrites, wireOfflineQueue } from '../offline';
 
 jest.mock('expo-secure-store', () => ({
@@ -223,5 +224,82 @@ describe('offline write queue, step 2: the stepper', () => {
     await until(() => posts().length === 2);
     expect(posts().map((c) => JSON.parse((c[1] as { body: string }).body).delta)).toEqual([-1, 1]);
     await until(() => second.state.status === 'success');
+  });
+
+  it('a press whose request never got an answer is sent once more, with the same id', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockResolvedValue(jsonResponse({ stock: 4, adjustment: {} }));
+    const client = wiredClient();
+    client.setQueryData(['products', ''], list(3));
+
+    const mutation = press(client);
+    await mutation.execute({ id: 1, delta: 1, requestId: 'press-5' });
+
+    expect(mutation.state.status).toBe('success');
+    expect(posts()).toHaveLength(2);
+    expect(posts().map((c) => JSON.parse((c[1] as { body: string }).body).requestId)).toEqual(['press-5', 'press-5']);
+    expect(client.getQueryData<ReturnType<typeof list>>(['products', ''])!.products[0].stock).toBe(4);
+  });
+
+  it('a second failure is the one that counts: two lost requests, then Not applied', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockImplementation(() => new Promise(() => {}));
+    const client = wiredClient();
+    const mutation = press(client);
+    await mutation.execute({ id: 1, delta: 1, requestId: 'press-8' }).catch(() => {});
+
+    expect(mutation.state.status).toBe('error');
+    expect(posts()).toHaveLength(2);
+  });
+
+  it('a gateway 5xx is not the server verdict and is retried once too', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 502, json: () => Promise.reject(new Error('not json')) })
+      .mockResolvedValue(jsonResponse({ stock: 4, adjustment: {} }));
+    const client = wiredClient();
+    const mutation = press(client);
+    await mutation.execute({ id: 1, delta: 1, requestId: 'press-9' });
+
+    expect(mutation.state.status).toBe('success');
+    expect(posts()).toHaveLength(2);
+  });
+
+  it('a refusal is the server answer and is not retried', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: () => Promise.resolve({ error: 'Only 0 in stock; cannot remove 1', stock: 0 }),
+    });
+    const client = wiredClient();
+    const mutation = press(client);
+    // execute() settles only after the retry decision, so a retried refusal
+    // would already show as a second POST here.
+    await mutation.execute({ id: 1, delta: -1, requestId: 'press-6' }).catch(() => {});
+
+    expect(mutation.state.status).toBe('error');
+    expect(posts()).toHaveLength(1);
+  });
+
+  it('a retry that comes due without signal pauses with the queue instead of failing', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
+    const client = wiredClient();
+    const mutation = press(client);
+    const done = mutation.execute({ id: 1, delta: 1, requestId: 'press-7' }).catch(() => {});
+    await until(() => posts().length === 1);
+    onlineManager.setOnline(false);
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS + 100));
+
+    expect(mutation.state.status).toBe('pending');
+    expect(mutation.state.isPaused).toBe(true);
+    expect(posts()).toHaveLength(1);
+
+    fetchMock.mockResolvedValue(jsonResponse({ stock: 4, adjustment: {} }));
+    onlineManager.setOnline(true);
+    await done;
+    expect(mutation.state.status).toBe('success');
+    expect(posts()).toHaveLength(2);
   });
 });

@@ -170,9 +170,11 @@ after a relaunch reconciles the row, says why it was refused and buzzes
 exactly like a live one. Presses on one product carry a `scope` and run one at
 a time in press order. A `409` lands the row on the count the `409` reports,
 with the server's reason under it and an error buzz; the notice stays until a
-later press lands or the count moves on. A press that never got an answer
-reads `Not applied` and is not queued - press again once the list has
-refetched.
+later press lands or the count moves on. A press that got no answer, or a
+5xx, is sent once more with the same id after a short pause; if that fails
+too while online it reads `Not applied` and is not queued - press again once
+the list has refetched. A retry that comes due offline or with the app in the
+background waits with the queue instead.
 
 Every press carries a `requestId`, made at press time, persisted with the
 mutation and sent with every attempt. It exists because the persister's write
@@ -180,9 +182,8 @@ to disk lags the live state by up to its throttle (one second): an app killed
 in that window after a reconnect relaunches with the press still marked
 paused on disk and replays it, and `adjust-stock` is a delta. The server
 dedupes on the id and answers a replay with the row it already wrote
-(Shelfstock `client_request_id` on `stock_adjustments`). Until that server
-change is deployed the window is real; there is no client retry for the same
-reason.
+(Shelfstock `client_request_id` on `stock_adjustments`, live since
+2026-09-06). The same id is what makes the single transport-error retry safe.
 
 Known hazard, out of scope: the product form PUTs an absolute `stock`
 (`src/products/ProductForm.tsx`), so an edit queued alongside stepper presses

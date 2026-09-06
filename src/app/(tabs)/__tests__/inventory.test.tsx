@@ -209,9 +209,12 @@ describe('inventory stepper', () => {
     await waitFor(() => expect(gets()).toHaveLength(2));
   });
 
-  it('a press that never got an answer is not applied, says so, and is not queued', async () => {
+  it('a press that never got an answer twice is not applied, says so, and is not queued', async () => {
+    // One transport retry is allowed (the server dedupes on the id); the
+    // second failure is the one the row reports.
     fetchMock
       .mockResolvedValueOnce(listOf(3))
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
       .mockRejectedValueOnce(new TypeError('Network request failed'))
       .mockImplementation(() => new Promise(() => {}));
 
@@ -220,7 +223,9 @@ describe('inventory stepper', () => {
 
     await fireEvent.press(screen.getByLabelText('Increase stock of Widget'));
 
-    expect(await screen.findByText('Not applied: Network request failed')).toBeTruthy();
+    expect(await screen.findByText('Not applied: Network request failed', {}, { timeout: 3000 })).toBeTruthy();
+    expect(posts()).toHaveLength(2);
+    expect(bodyOf(posts()[0]).requestId).toBe(bodyOf(posts()[1]).requestId);
     expect(screen.getByText('3 in stock')).toBeTruthy();
     expect(screen.queryByText(/pending/)).toBeNull();
     expect(screen.queryByText(/Refused/)).toBeNull();
