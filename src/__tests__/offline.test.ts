@@ -1,4 +1,5 @@
 import { QueryClient, dehydrate, hydrate, onlineManager } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { resumeQueuedWrites, wireOfflineQueue } from '../offline';
 
 jest.mock('expo-secure-store', () => ({
@@ -8,6 +9,12 @@ jest.mock('expo-secure-store', () => ({
 }));
 jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(() => () => {}),
+}));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+  NotificationFeedbackType: { Error: 'error', Success: 'success' },
 }));
 
 const fetchMock = jest.fn();
@@ -33,6 +40,7 @@ async function until(condition: () => boolean) {
 }
 
 beforeEach(() => {
+  jest.clearAllMocks();
   fetchMock.mockReset();
 });
 afterEach(() => {
@@ -102,8 +110,118 @@ describe('offline write queue', () => {
   it('without the wiring a restored mutation has no function to run', () => {
     const bare = new QueryClient();
     expect(bare.getMutationDefaults(['order-status']).mutationFn).toBeUndefined();
+    expect(bare.getMutationDefaults(['adjust-stock']).mutationFn).toBeUndefined();
     wireOfflineQueue(bare);
     expect(bare.getMutationDefaults(['order-status']).mutationFn).toBeInstanceOf(Function);
     expect(bare.getMutationDefaults(['product']).mutationFn).toBeInstanceOf(Function);
+    expect(bare.getMutationDefaults(['adjust-stock']).mutationFn).toBeInstanceOf(Function);
+  });
+});
+
+/**
+ * Step 2: the stepper. What the tests above prove for a keyed function, these
+ * prove for a keyed lifecycle - the restored press must move the row with the
+ * server's number, never ours, in press order, and say so when refused.
+ */
+describe('offline write queue, step 2: the stepper', () => {
+  const pagination = { page: 1, limit: 50, total: 1, totalPages: 1 };
+  const list = (stock: number) => ({ products: [{ id: 1, name: 'Widget', stock }], pagination });
+  const press = (client: QueryClient) =>
+    client
+      .getMutationCache()
+      .build(client, client.defaultMutationOptions({ mutationKey: ['adjust-stock'], scope: { id: 'stock:1' } }));
+  const posts = () => fetchMock.mock.calls.filter(([, init]) => (init as { method?: string } | undefined)?.method === 'POST');
+
+  it('a press made offline waits with the count untouched, survives a restart, and the row takes the server answer', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ stock: 7, adjustment: {} }));
+    onlineManager.setOnline(false);
+    const before = wiredClient();
+    before.setQueryData(['products', ''], list(3));
+    const mutation = press(before);
+    void mutation.execute({ id: 1, delta: 1, requestId: 'press-1' }).catch(() => {});
+    await until(() => mutation.state.isPaused);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // What reaches disk: the press with its key and scope, no snapshot to roll
+    // back to (hydration restores context whole - a snapshot would come back),
+    // and a list holding the server's 3, not our 4.
+    const state = dehydrate(before);
+    expect(state.mutations).toHaveLength(1);
+    expect(state.mutations[0].scope).toEqual({ id: 'stock:1' });
+    expect(state.mutations[0].state.variables).toEqual({ id: 1, delta: 1, requestId: 'press-1' });
+    expect(state.mutations[0].state.context).toBeUndefined();
+    const disk = state.queries.find((q) => q.queryKey[0] === 'products')!.state.data as ReturnType<typeof list>;
+    expect(disk.products[0].stock).toBe(3);
+    before.getMutationCache().clear();
+    before.unmount();
+
+    onlineManager.setOnline(true);
+    const after = wiredClient();
+    hydrate(after, state);
+    const invalidate = jest.spyOn(after, 'invalidateQueries');
+    await resumeQueuedWrites(after);
+
+    expect(after.getMutationCache().getAll()[0].state.status).toBe('success');
+    expect(String(posts()[0][0])).toContain('/api/products/1/adjust-stock');
+    // The same id the press was made with: the server's key for "already applied".
+    expect(JSON.parse((posts()[0][1] as { body: string }).body)).toEqual({ delta: 1, source: 'companion', requestId: 'press-1' });
+    // The server's 7, not 3 + 1.
+    expect(after.getQueryData<ReturnType<typeof list>>(['products', ''])!.products[0].stock).toBe(7);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['low-stock'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['product', 1] });
+  });
+
+  it('a replayed press the server refuses leaves the row on the server count and buzzes', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: () => Promise.resolve({ error: 'Only 2 in stock; cannot remove 1', stock: 2 }),
+    });
+    onlineManager.setOnline(false);
+    const before = wiredClient();
+    before.setQueryData(['products', ''], list(3));
+    const mutation = press(before);
+    void mutation.execute({ id: 1, delta: -1, requestId: 'press-2' }).catch(() => {});
+    await until(() => mutation.state.isPaused);
+    const state = dehydrate(before);
+    before.getMutationCache().clear();
+    before.unmount();
+
+    onlineManager.setOnline(true);
+    const after = wiredClient();
+    hydrate(after, state);
+    const invalidate = jest.spyOn(after, 'invalidateQueries');
+    await resumeQueuedWrites(after);
+
+    const restored = after.getMutationCache().getAll()[0];
+    expect(restored.state.status).toBe('error');
+    expect(restored.state.error?.message).toBe('Only 2 in stock; cannot remove 1');
+    expect(after.getQueryData<ReturnType<typeof list>>(['products', ''])!.products[0].stock).toBe(2);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['products'] });
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith('error');
+  });
+
+  it('presses on one product replay in press order, one at a time', async () => {
+    let resolveFirst!: (value: unknown) => void;
+    fetchMock
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+      .mockResolvedValue(jsonResponse({ stock: 3, adjustment: {} }));
+    onlineManager.setOnline(false);
+    const client = wiredClient();
+    const first = press(client);
+    const second = press(client);
+    void first.execute({ id: 1, delta: -1, requestId: 'press-3' }).catch(() => {});
+    void second.execute({ id: 1, delta: 1, requestId: 'press-4' }).catch(() => {});
+    await until(() => first.state.isPaused && second.state.isPaused);
+
+    onlineManager.setOnline(true);
+    await until(() => posts().length === 1);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(posts()).toHaveLength(1); // the second waits for the first
+
+    resolveFirst(jsonResponse({ stock: 2, adjustment: {} }));
+    await until(() => posts().length === 2);
+    expect(posts().map((c) => JSON.parse((c[1] as { body: string }).body).delta)).toEqual([-1, 1]);
+    await until(() => second.state.status === 'success');
   });
 });

@@ -50,6 +50,16 @@ it('throws ApiError carrying the server error message', async () => {
   });
 });
 
+it('carries the parsed error body, so a 409 can hand over the count it refused against', async () => {
+  respond(409, { error: 'Only 2 in stock; cannot remove 1', stock: 2 });
+
+  await expect(api('/api/products/1/adjust-stock', { method: 'POST' })).rejects.toMatchObject({
+    status: 409,
+    message: 'Only 2 in stock; cannot remove 1',
+    body: { error: 'Only 2 in stock; cannot remove 1', stock: 2 },
+  });
+});
+
 it('fires onUnauthorized on a 401', async () => {
   const cb = jest.fn();
   setOnUnauthorized(cb);

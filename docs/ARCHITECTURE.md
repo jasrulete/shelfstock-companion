@@ -154,10 +154,43 @@ The inventory stepper calls `POST /api/products/:id/adjust-stock` with
 `{ delta, source: 'companion' }`. It must never read the count, add one and
 PUT it back: that swallows any order that decremented the same product between
 the read and the write. The server applies the delta under the row lock and
-answers with its own count, which replaces ours. A `409` means it refused; the
-row goes back to where it was, with an error buzz.
+answers with its own count, which replaces ours.
 
-*Enforced by:* `src/app/(tabs)/__tests__/inventory.test.tsx`. Server side:
+The row shows only a count the server has sent - the list, an `adjust-stock`
+`200`, or the `stock` a `409` reports. A press the server has not confirmed is
+drawn beside it (`+2 pending`, from the mutation cache) and never folded into
+it, so the list the persister writes to disk never carries a number the server
+did not send, and nothing ever needs rolling back. That is deliberate:
+hydration restores a mutation's state whole, context included, so an
+`onMutate` snapshot would come back from disk and roll every row to a stale
+count on a replayed `409`. `adjustStockOptions()` in `src/api/products.ts` is
+the whole lifecycle of a press, spread by the hook and registered by
+`offline.ts` as the `['adjust-stock']` mutation default, so a press restored
+after a relaunch reconciles the row, says why it was refused and buzzes
+exactly like a live one. Presses on one product carry a `scope` and run one at
+a time in press order. A `409` lands the row on the count the `409` reports,
+with the server's reason under it and an error buzz; the notice stays until a
+later press lands or the count moves on. A press that never got an answer
+reads `Not applied` and is not queued - press again once the list has
+refetched.
+
+Every press carries a `requestId`, made at press time, persisted with the
+mutation and sent with every attempt. It exists because the persister's write
+to disk lags the live state by up to its throttle (one second): an app killed
+in that window after a reconnect relaunches with the press still marked
+paused on disk and replays it, and `adjust-stock` is a delta. The server
+dedupes on the id and answers a replay with the row it already wrote
+(Shelfstock `client_request_id` on `stock_adjustments`). Until that server
+change is deployed the window is real; there is no client retry for the same
+reason.
+
+Known hazard, out of scope: the product form PUTs an absolute `stock`
+(`src/products/ProductForm.tsx`), so an edit queued alongside stepper presses
+on the same product replays in parallel with them (different scopes) and can
+land on top of what the presses moved.
+
+*Enforced by:* `src/app/(tabs)/__tests__/inventory.test.tsx` and
+`src/__tests__/offline.test.ts`. Server side:
 [INV-13](https://github.com/jasrulete/Shelfstock/blob/main/docs/ARCHITECTURE.md#inv-13--every-change-to-productsstock-writes-a-ledger-row-in-the-same-transaction).
 
 ## 4. Known drift
