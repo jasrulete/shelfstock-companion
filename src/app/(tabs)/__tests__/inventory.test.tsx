@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import { useLowStock } from '../../../api/analytics';
 import InventoryScreen from '../inventory';
 
 jest.mock('expo-secure-store', () => ({
@@ -9,6 +10,9 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
 }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+// The chip's own query is mocked at the hook so the fetch-mock sequences the
+// other tests rely on stay one-request-per-step.
+jest.mock('../../../api/analytics', () => ({ useLowStock: jest.fn() }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
@@ -41,10 +45,13 @@ function listOf(stock: number) {
   return jsonResponse(200, { products: [{ ...widget, stock }], pagination });
 }
 
+let lastClient: QueryClient;
+
 function renderInventory() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  lastClient = client;
   return render(
     <QueryClientProvider client={client}>
       <InventoryScreen />
@@ -55,6 +62,7 @@ function renderInventory() {
 beforeEach(() => {
   jest.clearAllMocks();
   fetchMock.mockReset();
+  (useLowStock as jest.Mock).mockImplementation(() => ({ data: [] }));
 });
 
 /**
@@ -181,5 +189,45 @@ describe('inventory search and load states', () => {
 
     expect(await screen.findByText('Widget')).toBeTruthy();
     expect(screen.queryByText(/couldn.t load products/i)).toBeNull();
+  });
+});
+
+/**
+ * Roadmap Phase 3, low-stock chip: how many products are at or under the
+ * threshold, from GET /api/analytics/low-stock, and nothing more.
+ */
+describe('low-stock chip', () => {
+  it('says how many products are low', async () => {
+    (useLowStock as jest.Mock).mockImplementation(() => ({
+      data: [
+        { id: 1, name: 'Widget', stock: 3 },
+        { id: 2, name: 'Gadget', stock: 0 },
+      ],
+    }));
+    fetchMock.mockResolvedValue(listOf(3));
+    await renderInventory();
+
+    expect(await screen.findByText('2 low on stock')).toBeTruthy();
+  });
+
+  it('shows no chip when nothing is low', async () => {
+    fetchMock.mockResolvedValue(listOf(3));
+    await renderInventory();
+
+    await screen.findByText('Widget');
+    expect(screen.queryByText(/low on stock/)).toBeNull();
+  });
+
+  it('recounts after a stepper press', async () => {
+    fetchMock.mockImplementation((_url: unknown, init?: { method?: string }) =>
+      Promise.resolve(init?.method === 'POST' ? jsonResponse(200, { ...widget, stock: 4 }) : listOf(3))
+    );
+    await renderInventory();
+    await screen.findByText('Widget');
+    const invalidate = jest.spyOn(lastClient, 'invalidateQueries');
+
+    await fireEvent.press(screen.getByLabelText('Increase stock of Widget'));
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['low-stock'] }));
   });
 });
