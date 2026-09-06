@@ -170,10 +170,11 @@ after a relaunch reconciles the row, says why it was refused and buzzes
 exactly like a live one. Presses on one product carry a `scope` and run one at
 a time in press order. A `409` lands the row on the count the `409` reports,
 with the server's reason under it and an error buzz; the notice stays until a
-later press lands or the count moves on. A press that never got an answer
-is sent once more with the same id after a short pause; if that fails too it
-reads `Not applied` and is not queued - press again once the list has
-refetched.
+later press lands or the count moves on. A press that got no answer, or a
+5xx, is sent once more with the same id after a short pause; if that fails
+too while online it reads `Not applied` and is not queued - press again once
+the list has refetched. A retry that comes due offline or with the app in the
+background waits with the queue instead.
 
 Every press carries a `requestId`, made at press time, persisted with the
 mutation and sent with every attempt. It exists because the persister's write

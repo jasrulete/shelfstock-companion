@@ -161,6 +161,9 @@ function refreshStock(client: QueryClient, id: number) {
   void client.invalidateQueries({ queryKey: ['low-stock'] }); // the inventory tab's chip counts from this
 }
 
+/** Long enough for a dropped socket to be over; the only cost is 750 ms more of "+1 pending". */
+export const RETRY_DELAY_MS = 750;
+
 /**
  * The whole lifecycle of a stepper press, as plain options. useAdjustStock
  * spreads them and offline.ts registers them as the ['adjust-stock'] mutation
@@ -175,15 +178,17 @@ function refreshStock(client: QueryClient, id: number) {
  * disk and roll every row to a stale count on a replayed 409. offline.test.ts
  * pins that the persisted context stays undefined.
  *
- * One retry, for a transport error only. The server dedupes on requestId, so
- * a request that reached it but lost its answer is safe to send again with
- * the same id; an ApiError is the server's answer and is never retried. If
- * the network is gone by the time the retry is due, the retryer pauses the
- * press with the rest of the queue instead of failing it.
+ * One retry per launch of the press, for a dropped socket or a 5xx. The
+ * server dedupes on requestId, so a request that reached it but lost its
+ * answer is safe to send again with the same id - and a gateway's 502 during
+ * a deploy, or the handler's 500 after its ROLLBACK, is no more the server's
+ * verdict than a dropped socket is. An answer below 500 is the verdict and is
+ * never retried. If the network is gone, or the app is in the background, by
+ * the time the retry is due, the retryer pauses the press with the rest of
+ * the queue instead of failing it. "Per launch": the retry budget lives in
+ * the attempt, not in the persisted state, so a press restored from disk may
+ * retry once more - harmless, every attempt carries the same id.
  */
-/** Long enough for a dropped socket to be over, short enough that a thumb does not press again first. */
-export const RETRY_DELAY_MS = 750;
-
 export function adjustStockOptions(client: QueryClient) {
   return {
     mutationFn: adjustStock,
@@ -192,7 +197,8 @@ export function adjustStockOptions(client: QueryClient) {
     // it was built - so with the default five minutes its "Refused" text could
     // vanish seconds after appearing. An hour costs a few bytes each.
     gcTime: 60 * 60 * 1000,
-    retry: (failureCount: number, err: unknown) => failureCount < 1 && !(err instanceof ApiError),
+    retry: (failureCount: number, err: unknown) =>
+      failureCount < 1 && (!(err instanceof ApiError) || err.status >= 500),
     retryDelay: RETRY_DELAY_MS,
     onSuccess: ({ stock }: AdjustStockResponse, { id }: AdjustStockInput) => {
       setStock(client, id, stock);

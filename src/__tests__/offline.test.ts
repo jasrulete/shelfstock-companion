@@ -240,7 +240,32 @@ describe('offline write queue, step 2: the stepper', () => {
     expect(posts()).toHaveLength(2);
     expect(posts().map((c) => JSON.parse((c[1] as { body: string }).body).requestId)).toEqual(['press-5', 'press-5']);
     expect(client.getQueryData<ReturnType<typeof list>>(['products', ''])!.products[0].stock).toBe(4);
-  }, RETRY_DELAY_MS + 3000);
+  });
+
+  it('a second failure is the one that counts: two lost requests, then Not applied', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockImplementation(() => new Promise(() => {}));
+    const client = wiredClient();
+    const mutation = press(client);
+    await mutation.execute({ id: 1, delta: 1, requestId: 'press-8' }).catch(() => {});
+
+    expect(mutation.state.status).toBe('error');
+    expect(posts()).toHaveLength(2);
+  });
+
+  it('a gateway 5xx is not the server verdict and is retried once too', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 502, json: () => Promise.reject(new Error('not json')) })
+      .mockResolvedValue(jsonResponse({ stock: 4, adjustment: {} }));
+    const client = wiredClient();
+    const mutation = press(client);
+    await mutation.execute({ id: 1, delta: 1, requestId: 'press-9' });
+
+    expect(mutation.state.status).toBe('success');
+    expect(posts()).toHaveLength(2);
+  });
 
   it('a refusal is the server answer and is not retried', async () => {
     fetchMock.mockResolvedValue({
@@ -250,12 +275,13 @@ describe('offline write queue, step 2: the stepper', () => {
     });
     const client = wiredClient();
     const mutation = press(client);
+    // execute() settles only after the retry decision, so a retried refusal
+    // would already show as a second POST here.
     await mutation.execute({ id: 1, delta: -1, requestId: 'press-6' }).catch(() => {});
-    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS + 100));
 
     expect(mutation.state.status).toBe('error');
     expect(posts()).toHaveLength(1);
-  }, RETRY_DELAY_MS + 3000);
+  });
 
   it('a retry that comes due without signal pauses with the queue instead of failing', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
@@ -275,5 +301,5 @@ describe('offline write queue, step 2: the stepper', () => {
     await done;
     expect(mutation.state.status).toBe('success');
     expect(posts()).toHaveLength(2);
-  }, RETRY_DELAY_MS + 3000);
+  });
 });
