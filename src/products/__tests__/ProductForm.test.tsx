@@ -47,3 +47,17 @@ it('refuses a blank price instead of submitting the product as free', async () =
   expect(await screen.findByText('Price must be a non-negative number')).toBeTruthy();
   expect(onSubmit).not.toHaveBeenCalled();
 });
+
+it('refuses a blank stock count instead of submitting the product with none', async () => {
+  const onSubmit = jest.fn();
+  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={onSubmit} />);
+
+  await fireEvent.changeText(screen.getByLabelText('Name'), 'Mug');
+  await fireEvent.changeText(screen.getByLabelText('Price (USD)'), '9.50');
+  await fireEvent.changeText(screen.getByLabelText('Category'), 'Kitchen');
+  await fireEvent.changeText(screen.getByLabelText('Stock'), '');
+  await fireEvent.press(screen.getByText('Save'));
+
+  expect(await screen.findByText('Stock must be a whole number')).toBeTruthy();
+  expect(onSubmit).not.toHaveBeenCalled();
+});
