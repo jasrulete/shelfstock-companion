@@ -117,6 +117,8 @@ export function useAdjustStock() {
     onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
+      // The inventory tab's low-stock chip counts from this.
+      queryClient.invalidateQueries({ queryKey: ['low-stock'] });
     },
   });
 }

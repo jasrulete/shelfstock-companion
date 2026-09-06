@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useLowStock } from '../../api/analytics';
 import { useAdjustStock, useProducts } from '../../api/products';
 import type { Product } from '../../api/types';
 import { useDebouncedValue } from '../../useDebouncedValue';
@@ -12,6 +13,9 @@ export default function InventoryScreen() {
   // One request per pause in typing, not per keystroke (roadmap: 300 ms).
   const query = useDebouncedValue(search, 300);
   const { data, isLoading, isError, refetch, isRefetching } = useProducts(query);
+  // Roadmap: chip only. It says how many, not which; the rows' red counts
+  // say which, and a search finds them.
+  const lowCount = useLowStock().data?.length ?? 0;
 
   return (
     <View style={styles.container}>
@@ -28,6 +32,14 @@ export default function InventoryScreen() {
           <Text style={styles.scanText}>Scan</Text>
         </Pressable>
       </View>
+      {lowCount > 0 && (
+        <View style={styles.chipRow}>
+          <View style={styles.chip}>
+            <Ionicons name="alert-circle-outline" size={14} color="#c0392b" />
+            <Text style={styles.chipText}>{lowCount} low on stock</Text>
+          </View>
+        </View>
+      )}
       {isError && (
         <View style={styles.errorBar} accessibilityRole="alert">
           <Text style={styles.errorText}>Couldn&apos;t load products.</Text>
@@ -144,6 +156,9 @@ const styles = StyleSheet.create({
   stepDisabled: { opacity: 0.4 },
   stepPressed: { backgroundColor: '#eee' },
   empty: { textAlign: 'center', marginTop: 40, color: '#666' },
+  chipRow: { paddingHorizontal: 12, paddingBottom: 8 },
+  chip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fdecea', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { color: '#c0392b', fontWeight: '600', fontSize: 12 },
   errorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fdecea', paddingHorizontal: 12, paddingVertical: 8 },
   errorText: { color: '#c0392b', fontWeight: '600' },
   retry: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#c0392b' },
