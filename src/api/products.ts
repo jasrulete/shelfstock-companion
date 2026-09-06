@@ -175,11 +175,15 @@ function refreshStock(client: QueryClient, id: number) {
  * disk and roll every row to a stale count on a replayed 409. offline.test.ts
  * pins that the persisted context stays undefined.
  *
- * No retry either: adjust-stock has no idempotency key, so a request that
- * reached the server but lost its answer would double-write the ledger if it
- * were retried. A press lost that way shows as refused, and the refetch shows
- * the truth.
+ * One retry, for a transport error only. The server dedupes on requestId, so
+ * a request that reached it but lost its answer is safe to send again with
+ * the same id; an ApiError is the server's answer and is never retried. If
+ * the network is gone by the time the retry is due, the retryer pauses the
+ * press with the rest of the queue instead of failing it.
  */
+/** Long enough for a dropped socket to be over, short enough that a thumb does not press again first. */
+export const RETRY_DELAY_MS = 750;
+
 export function adjustStockOptions(client: QueryClient) {
   return {
     mutationFn: adjustStock,
@@ -188,6 +192,8 @@ export function adjustStockOptions(client: QueryClient) {
     // it was built - so with the default five minutes its "Refused" text could
     // vanish seconds after appearing. An hour costs a few bytes each.
     gcTime: 60 * 60 * 1000,
+    retry: (failureCount: number, err: unknown) => failureCount < 1 && !(err instanceof ApiError),
+    retryDelay: RETRY_DELAY_MS,
     onSuccess: ({ stock }: AdjustStockResponse, { id }: AdjustStockInput) => {
       setStock(client, id, stock);
       refreshStock(client, id);
