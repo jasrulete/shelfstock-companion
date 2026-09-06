@@ -36,6 +36,10 @@ Screenshots and the scan demo GIF live in [`docs/screenshots/`](docs/screenshots
   written to disk: AsyncStorage is not encrypted, and every order shape carries
   the customer's name, phone number and address. Losing the offline order list
   is the better half of that trade.
+- **Offline write queue (step 1)** — a status change or product edit made
+  without signal waits instead of failing, a banner says it is queued, and one
+  still waiting when the app closes is sent on the next launch. The stock
+  stepper is not part of step 1.
 - **Admin-gated login** — logs in against the same ShelfStock accounts as the
   web admin; non-admin credentials are rejected client-side after auth.
 

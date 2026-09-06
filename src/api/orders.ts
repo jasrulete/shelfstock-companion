@@ -45,16 +45,26 @@ export function useOrder(id: number) {
   });
 }
 
+export interface OrderStatusChange {
+  id: number;
+  status: OrderStatus;
+  /** What the pack screen's "Ship anyway" skipped; the server logs it, never stores it. */
+  note?: string;
+}
+
+/** A plain function, not only a hook: offline.ts registers it as the default for the ['order-status'] mutation key so a change queued when the app closed can run on the next launch. */
+export function updateOrderStatus({ id, status, note }: OrderStatusChange): Promise<Order> {
+  return api<Order>(`/api/orders/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+  });
+}
+
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    // `note` is what the pack screen's "Ship anyway" skipped; the server logs
-    // it and never stores it.
-    mutationFn: ({ id, status, note }: { id: number; status: OrderStatus; note?: string }) =>
-      api<Order>(`/api/orders/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, ...(note ? { note } : {}) }),
-      }),
+    mutationKey: ['order-status'],
+    mutationFn: updateOrderStatus,
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', id] });

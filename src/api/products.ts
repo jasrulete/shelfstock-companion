@@ -46,11 +46,16 @@ export function useCreateProduct() {
   });
 }
 
+/** Plain function for the same reason as updateOrderStatus: the ['product'] mutation default. */
+export function updateProduct({ id, ...input }: Partial<ProductInput> & { id: number }): Promise<Product> {
+  return api<Product>(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+}
+
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...input }: Partial<ProductInput> & { id: number }) =>
-      api<Product>(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+    mutationKey: ['product'],
+    mutationFn: updateProduct,
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
