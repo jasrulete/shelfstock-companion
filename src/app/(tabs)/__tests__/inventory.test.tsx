@@ -128,3 +128,58 @@ describe('inventory stepper', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Roadmap Phase 3, list ergonomics: a word typed with a thumb is one
+ * request, the last list stays up while the next one loads, and a failed
+ * load says so and offers a way to try again - it is not an empty shelf.
+ */
+describe('inventory search and load states', () => {
+  const urls = () => fetchMock.mock.calls.map((call) => String(call[0]));
+
+  it('asks the server once per pause in typing, not once per keystroke', async () => {
+    fetchMock.mockResolvedValue(listOf(3));
+    await renderInventory();
+    await screen.findByText('Widget');
+
+    const input = screen.getByPlaceholderText('Search products');
+    await fireEvent.changeText(input, 'w');
+    await fireEvent.changeText(input, 'wi');
+    await fireEvent.changeText(input, 'wid');
+
+    await waitFor(() => expect(urls().some((u) => u.includes('search=wid'))).toBe(true));
+    expect(urls().filter((u) => u.includes('search='))).toEqual([expect.stringContaining('search=wid')]);
+  });
+
+  it('keeps the last list on screen while the next search loads', async () => {
+    let resolveNext!: (value: unknown) => void;
+    fetchMock
+      .mockResolvedValueOnce(listOf(3))
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveNext = resolve)));
+    await renderInventory();
+    await screen.findByText('Widget');
+
+    await fireEvent.changeText(screen.getByPlaceholderText('Search products'), 'gad');
+    await waitFor(() => expect(urls().some((u) => u.includes('search=gad'))).toBe(true));
+
+    expect(screen.getByText('Widget')).toBeTruthy();
+    expect(screen.queryByText('No products')).toBeNull();
+
+    resolveNext(jsonResponse(200, { products: [{ ...widget, id: 2, name: 'Gadget' }], pagination }));
+    expect(await screen.findByText('Gadget')).toBeTruthy();
+    expect(screen.queryByText('Widget')).toBeNull();
+  });
+
+  it('says the list could not load, and Retry asks again', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(listOf(3));
+    await renderInventory();
+
+    expect(await screen.findByText(/couldn.t load products/i)).toBeTruthy();
+    expect(screen.queryByText('No products')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Widget')).toBeTruthy();
+    expect(screen.queryByText(/couldn.t load products/i)).toBeNull();
+  });
+});
