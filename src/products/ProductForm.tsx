@@ -41,19 +41,49 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.label}>Name</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
+      <TextInput style={styles.input} value={name} onChangeText={setName} accessibilityLabel="Name" />
       <Text style={styles.label}>Description</Text>
-      <TextInput style={[styles.input, styles.multiline]} value={description ?? ''} onChangeText={setDescription} multiline />
+      <TextInput
+        style={[styles.input, styles.multiline]}
+        value={description ?? ''}
+        onChangeText={setDescription}
+        multiline
+        accessibilityLabel="Description"
+      />
       <Text style={styles.label}>Price (USD)</Text>
-      <TextInput style={styles.input} value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
+      <TextInput
+        style={styles.input}
+        value={price}
+        onChangeText={setPrice}
+        keyboardType="decimal-pad"
+        accessibilityLabel="Price (USD)"
+      />
       <Text style={styles.label}>Category</Text>
-      <TextInput style={styles.input} value={category} onChangeText={setCategory} />
+      <TextInput style={styles.input} value={category} onChangeText={setCategory} accessibilityLabel="Category" />
       <Text style={styles.label}>Stock</Text>
-      <TextInput style={styles.input} value={stock} onChangeText={setStock} keyboardType="number-pad" />
+      <TextInput
+        style={styles.input}
+        value={stock}
+        onChangeText={setStock}
+        keyboardType="number-pad"
+        accessibilityLabel="Stock"
+      />
       <Text style={styles.label}>Image URL</Text>
-      <TextInput style={styles.input} value={imageUrl ?? ''} onChangeText={setImageUrl} autoCapitalize="none" />
+      <TextInput
+        style={styles.input}
+        value={imageUrl ?? ''}
+        onChangeText={setImageUrl}
+        autoCapitalize="none"
+        accessibilityLabel="Image URL"
+      />
       <Text style={styles.label}>Barcode</Text>
-      <TextInput style={styles.input} value={barcode ?? ''} onChangeText={setBarcode} autoCapitalize="none" />
+      <TextInput
+        style={styles.input}
+        value={barcode ?? ''}
+        onChangeText={setBarcode}
+        autoCapitalize="none"
+        accessibilityLabel="Barcode"
+      />
       {error && <Text style={styles.error}>{error}</Text>}
       <Button title={submitLabel} onPress={submit} disabled={busy} />
     </ScrollView>
