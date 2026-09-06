@@ -68,7 +68,7 @@ this app is wrong. Cross-repo decisions live in
 
 ## Backend endpoints added
 
-This app required three additions to the ShelfStock backend (implemented in
+This app required four additions to the ShelfStock backend (implemented in
 the [ShelfStock](https://github.com/jasrulete/Shelfstock) repo, not here):
 
 | Method | Path                           | Purpose                                                    |
@@ -76,6 +76,7 @@ the [ShelfStock](https://github.com/jasrulete/Shelfstock) repo, not here):
 | GET    | `/api/products/barcode/:code`  | Look up a product by barcode (admin), for the scan flow.    |
 | POST   | `/api/devices`                 | Register an Expo push token for the logged-in admin.        |
 | DELETE | `/api/devices/:token`          | Unregister a push token (logout / notifications-off).       |
+| POST   | `/api/products/:id/adjust-stock` | Move stock by a delta under the row lock, writing a ledger row. Takes a `requestId` so a press replayed from the offline queue is applied once. |
 
 New orders (`POST /api/orders`) additionally trigger a best-effort push to
 all registered admin devices.
@@ -135,16 +136,17 @@ npm test            # jest
 ```
 
 CI (see the badge above) runs all three — typecheck, lint, and the Jest
-suite — on every push and pull request.
+suite — on every pull request and on every push to `main`, which is also
+what `main`'s branch protection requires before a merge.
 
 ## Release build
 
 Building and shipping a signed APK is a deferred, execution-time step (not
 run as part of this repo's automated setup):
 
-1. Set the API URL (`https://shelfstock-jer2x.vercel.app`) in `eas.json`'s
-   `build.preview.env.EXPO_PUBLIC_API_URL` before building — it ships with
-   the placeholder `https://YOUR-RAILWAY-API-URL` by default.
+1. Check the API URL in `eas.json`'s `build.preview.env.EXPO_PUBLIC_API_URL`.
+   It is already `https://shelfstock-jer2x.vercel.app`; the value is baked
+   into the binary at build time, so a change here means a rebuild.
 2. Build the APK:
 
    ```bash
@@ -156,5 +158,5 @@ run as part of this repo's automated setup):
    ```bash
    gh release create v1.0.0 ./shelfstock-companion.apk \
      --title "ShelfStock Companion v1.0.0" \
-     --notes "Admin companion app for ShelfStock: order management with push notifications, barcode-scan inventory, offline read caching. Install the APK on Android 8+."
+     --notes "Admin companion app for ShelfStock: order management with push notifications, barcode-scan inventory, offline read caching and an offline write queue. Install the APK on Android 8+."
    ```
