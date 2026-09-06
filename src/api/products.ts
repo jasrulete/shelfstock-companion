@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type { Product, ProductsListResponse, StockAdjustment } from './types';
 
@@ -15,6 +15,9 @@ export interface ProductInput {
 export function useProducts(search: string) {
   return useQuery({
     queryKey: ['products', search],
+    // A new search keeps the last list on screen until its own arrives,
+    // instead of flashing empty between keystrokes.
+    placeholderData: keepPreviousData,
     queryFn: () =>
       api<ProductsListResponse>(
         `/api/products?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`

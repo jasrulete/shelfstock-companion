@@ -5,10 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAdjustStock, useProducts } from '../../api/products';
 import type { Product } from '../../api/types';
+import { useDebouncedValue } from '../../useDebouncedValue';
 
 export default function InventoryScreen() {
   const [search, setSearch] = useState('');
-  const { data, isLoading, refetch, isRefetching } = useProducts(search);
+  // One request per pause in typing, not per keystroke (roadmap: 300 ms).
+  const query = useDebouncedValue(search, 300);
+  const { data, isLoading, isError, refetch, isRefetching } = useProducts(query);
 
   return (
     <View style={styles.container}>
@@ -25,11 +28,20 @@ export default function InventoryScreen() {
           <Text style={styles.scanText}>Scan</Text>
         </Pressable>
       </View>
+      {isError && (
+        <View style={styles.errorBar} accessibilityRole="alert">
+          <Text style={styles.errorText}>Couldn&apos;t load products.</Text>
+          <Pressable accessibilityRole="button" onPress={() => refetch()} style={styles.retry}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
       <FlatList
         data={data?.products ?? []}
         keyExtractor={(p) => String(p.id)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        ListEmptyComponent={isLoading ? null : <Text style={styles.empty}>No products</Text>}
+        // A failed load is not an empty shelf; the bar above says what happened.
+        ListEmptyComponent={isLoading || isError ? null : <Text style={styles.empty}>No products</Text>}
         renderItem={({ item }) => <ProductRow product={item} />}
       />
       <Pressable style={styles.fab} onPress={() => router.push('/products/new')} accessibilityLabel="Add product">
@@ -132,5 +144,9 @@ const styles = StyleSheet.create({
   stepDisabled: { opacity: 0.4 },
   stepPressed: { backgroundColor: '#eee' },
   empty: { textAlign: 'center', marginTop: 40, color: '#666' },
+  errorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fdecea', paddingHorizontal: 12, paddingVertical: 8 },
+  errorText: { color: '#c0392b', fontWeight: '600' },
+  retry: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#c0392b' },
+  retryText: { color: '#fff', fontWeight: '600' },
   fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', elevation: 4 },
 });
