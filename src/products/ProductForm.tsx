@@ -28,7 +28,9 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
       return setError('Price must be a non-negative number');
     }
     if (!category.trim()) return setError('Category is required');
-    if (!Number.isInteger(stockNum) || stockNum < 0) return setError('Stock must be a whole number');
+    if (!stock.trim() || !Number.isInteger(stockNum) || stockNum < 0) {
+      return setError('Stock must be a whole number');
+    }
     setError(null);
     onSubmit({
       name: name.trim(),
