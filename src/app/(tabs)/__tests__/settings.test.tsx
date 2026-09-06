@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AuthProvider } from '../../../auth/AuthContext';
-import { enablePush } from '../../../notifications';
+import { enablePush, getPushPermissionState } from '../../../notifications';
 import SettingsScreen from '../settings';
 
 jest.mock('expo-secure-store', () => ({
@@ -17,7 +17,6 @@ jest.mock('../../../notifications', () => ({
   getPushPermissionState: jest.fn(() => Promise.resolve('granted')),
 }));
 
-import { getPushPermissionState } from '../../../notifications';
 
 beforeEach(() => {
   jest.clearAllMocks();
