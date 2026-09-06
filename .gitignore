@@ -45,3 +45,10 @@ example
 
 # SDD workspace
 .superpowers/
+
+# build artifacts
+# docs/SETUP.md 6 and the README's release step both put the downloaded APK in
+# this folder to hand it to `gh release create`. It is ~130 MB and belongs on
+# the GitHub Release, never in git history.
+*.apk
+*.aab
