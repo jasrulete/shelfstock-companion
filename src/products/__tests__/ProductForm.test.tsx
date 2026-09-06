@@ -35,3 +35,15 @@ it('submits what was typed into the labelled fields, parsed', async () => {
     barcode: null,
   });
 });
+
+it('refuses a blank price instead of submitting the product as free', async () => {
+  const onSubmit = jest.fn();
+  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={onSubmit} />);
+
+  await fireEvent.changeText(screen.getByLabelText('Name'), 'Mug');
+  await fireEvent.changeText(screen.getByLabelText('Category'), 'Kitchen');
+  await fireEvent.press(screen.getByText('Save'));
+
+  expect(await screen.findByText('Price must be a non-negative number')).toBeTruthy();
+  expect(onSubmit).not.toHaveBeenCalled();
+});

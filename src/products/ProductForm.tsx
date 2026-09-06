@@ -23,7 +23,10 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
     const priceNum = Number(price);
     const stockNum = Number(stock);
     if (!name.trim()) return setError('Name is required');
-    if (!Number.isFinite(priceNum) || priceNum < 0) return setError('Price must be a non-negative number');
+    // Number('') is 0: a blank price must not submit the product as free.
+    if (!price.trim() || !Number.isFinite(priceNum) || priceNum < 0) {
+      return setError('Price must be a non-negative number');
+    }
     if (!category.trim()) return setError('Category is required');
     if (!Number.isInteger(stockNum) || stockNum < 0) return setError('Stock must be a whole number');
     setError(null);
