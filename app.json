@@ -18,7 +18,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,13 +41,21 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "ShelfStock Companion uses the camera to scan product barcodes."
+          "cameraPermission": "ShelfStock Companion uses the camera to scan product barcodes.",
+          "recordAudioAndroid": false
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c633bc8c-4d30-4718-a2d2-bc057c033347"
+      }
+    },
+    "owner": "jer2x"
   }
 }
