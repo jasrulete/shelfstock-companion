@@ -20,6 +20,7 @@ function NewProductContent() {
     <>
       <Stack.Screen options={{ title: 'New product' }} />
       <ProductForm
+        mode="create"
         initial={{ barcode: barcode ?? null }}
         submitLabel="Create product"
         busy={mutation.isPending}

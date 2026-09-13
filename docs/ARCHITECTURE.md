@@ -197,10 +197,15 @@ dedupes on the id and answers a replay with the row it already wrote
 (Shelfstock `client_request_id` on `stock_adjustments`, live since
 2026-09-06). The same id is what makes the single transport-error retry safe.
 
-Known hazard, out of scope: the product form PUTs an absolute `stock`
-(`src/products/ProductForm.tsx`), so an edit queued alongside stepper presses
-on the same product replays in parallel with them (different scopes) and can
-land on top of what the presses moved.
+The product form never sends `stock` on an edit (`mode="edit"` in
+`src/products/ProductForm.tsx`): the count is shown read-only with a pointer
+to the stepper, and the PUT carries no count, so an edit queued alongside
+presses on the same product cannot land on top of what they moved, whichever
+order the two scopes replay in. On create the initial count goes with the
+POST; no press can be queued on a product that does not exist yet. This was
+the hazard ADR-0009 named as out of scope; closed 2026-09-15.
+`src/products/__tests__/ProductForm.test.tsx` and
+`src/app/products/__tests__/editProduct.test.tsx` pin it.
 
 *Enforced by:* `src/app/(tabs)/__tests__/inventory.test.tsx` and
 `src/__tests__/offline.test.ts`. Server side:

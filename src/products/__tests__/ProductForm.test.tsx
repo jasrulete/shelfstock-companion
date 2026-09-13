@@ -9,7 +9,7 @@ import ProductForm from '../ProductForm';
 const LABELS = ['Name', 'Description', 'Price (USD)', 'Category', 'Stock', 'Image URL', 'Barcode'];
 
 it('exposes every field under its visible label', async () => {
-  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={jest.fn()} />);
+  await render(<ProductForm mode="create" submitLabel="Save" busy={false} onSubmit={jest.fn()} />);
   for (const label of LABELS) {
     expect(screen.getByLabelText(label)).toBeTruthy();
   }
@@ -17,7 +17,7 @@ it('exposes every field under its visible label', async () => {
 
 it('submits what was typed into the labelled fields, parsed', async () => {
   const onSubmit = jest.fn();
-  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={onSubmit} />);
+  await render(<ProductForm mode="create" submitLabel="Save" busy={false} onSubmit={onSubmit} />);
 
   await fireEvent.changeText(screen.getByLabelText('Name'), ' Mug ');
   await fireEvent.changeText(screen.getByLabelText('Price (USD)'), '9.50');
@@ -38,7 +38,7 @@ it('submits what was typed into the labelled fields, parsed', async () => {
 
 it('refuses a blank price instead of submitting the product as free', async () => {
   const onSubmit = jest.fn();
-  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={onSubmit} />);
+  await render(<ProductForm mode="create" submitLabel="Save" busy={false} onSubmit={onSubmit} />);
 
   await fireEvent.changeText(screen.getByLabelText('Name'), 'Mug');
   await fireEvent.changeText(screen.getByLabelText('Category'), 'Kitchen');
@@ -48,9 +48,36 @@ it('refuses a blank price instead of submitting the product as free', async () =
   expect(onSubmit).not.toHaveBeenCalled();
 });
 
+// C-INV-8: stock moves by delta through adjust-stock, never by PUT. An edit
+// that carried an absolute count could be queued alongside stepper presses on
+// the same product and, replayed in parallel with them, land on top of what
+// they moved. So an edit shows the count and never submits one.
+it('in edit mode shows the count read-only and submits no stock at all', async () => {
+  const onSubmit = jest.fn();
+  await render(
+    <ProductForm
+      mode="edit"
+      initial={{ name: 'Mug', price: 9.5, category: 'Kitchen', stock: 5 }}
+      submitLabel="Save changes"
+      busy={false}
+      onSubmit={onSubmit}
+    />
+  );
+
+  expect(screen.queryByLabelText('Stock')).toBeNull();
+  expect(screen.getByText(/Stock: 5/)).toBeTruthy();
+  await fireEvent.changeText(screen.getByLabelText('Name'), 'Big Mug');
+  await fireEvent.press(screen.getByText('Save changes'));
+
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+  const submitted = onSubmit.mock.calls[0][0];
+  expect(submitted).not.toHaveProperty('stock');
+  expect(submitted).toMatchObject({ name: 'Big Mug', price: 9.5, category: 'Kitchen' });
+});
+
 it('refuses a blank stock count instead of submitting the product with none', async () => {
   const onSubmit = jest.fn();
-  await render(<ProductForm submitLabel="Save" busy={false} onSubmit={onSubmit} />);
+  await render(<ProductForm mode="create" submitLabel="Save" busy={false} onSubmit={onSubmit} />);
 
   await fireEvent.changeText(screen.getByLabelText('Name'), 'Mug');
   await fireEvent.changeText(screen.getByLabelText('Price (USD)'), '9.50');
