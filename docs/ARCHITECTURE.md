@@ -94,6 +94,10 @@ names, phone numbers and home addresses for every order on the device.
 Consequence, accepted deliberately: **offline reads cover products only.** See
 [ADR-0004](https://github.com/jasrulete/Shelfstock/blob/main/docs/adr/0004-offline-reads-not-writes.md).
 
+`android.allowBackup` is `false` in `app.json`, so none of the app's storage —
+the products cache included — is copied into device or cloud backups. Takes
+effect on the next build.
+
 *If you add a query that returns customer data, add its key to
 `holdsCustomerPii()` in the same commit.*
 
@@ -137,6 +141,14 @@ in the same breath.*
 `src/api/client.ts` calls `onUnauthorized` on any 401, which boots the session.
 Deep-linked screens are additionally guarded by `RequireAuth` so an
 unauthenticated deep link lands on login rather than a raw error.
+
+Two edges are handled in code rather than left to ordering. A 401 that arrives
+before `AuthProvider` has registered its handler — a persisted write replayed
+on launch — is held by `client.ts` and delivered the moment a handler is set.
+And `logout` refuses to re-enter: its own cleanup, the push unregistration,
+goes out with the token that just failed and is answered 401 too; without the
+guard each such 401 started another logout. `src/api/__tests__/client.test.ts`
+and `src/auth/__tests__/logout.test.tsx` pin both.
 
 ### C-INV-7 — `barcode` may be absent from a product response
 
@@ -229,8 +241,11 @@ the server serves `allowed_transitions`, this app renders from it, and
 
 ## 5. Testing
 
-`npm test` (Jest; it prints the current count), `npm run typecheck`, `npm run lint`.
-CI runs all three.
+`npm test` (Jest; it prints the current count), `npm run typecheck`,
+`npm run lint`, and `npm audit --omit=dev --audit-level=critical`. CI runs all
+four. The audit bar is `critical` rather than the web repo's `high` because
+the Expo SDK's build tooling carries known high and moderate advisories that
+only a major SDK bump clears; raise it when that lands.
 
 `jest.testTimeout` is deliberately raised — CI is always a cold cache, and the
 default reads as a broken environment rather than a slow one.

@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { api, ApiError, setOnUnauthorized, TOKEN_KEY } from '../api/client';
 import type { PublicUser } from '../api/types';
@@ -39,13 +39,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  // One logout at a time. A handler's own request can be answered 401 - the
+  // push unregistration goes out with the token that just failed - and that
+  // 401 re-enters here through onUnauthorized; without the guard each one
+  // starts another logout and runs every handler again.
+  const loggingOut = useRef(false);
   const logout = useCallback(async () => {
-    for (const handler of logoutHandlers) {
-      await handler().catch(() => {}); // cleanup is best-effort
+    if (loggingOut.current) return;
+    loggingOut.current = true;
+    try {
+      for (const handler of logoutHandlers) {
+        await handler().catch(() => {}); // cleanup is best-effort
+      }
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_KEY);
+      setUser(null);
+    } finally {
+      loggingOut.current = false;
     }
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
-    setUser(null);
   }, []);
 
   useEffect(() => {
