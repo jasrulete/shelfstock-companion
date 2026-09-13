@@ -3,13 +3,21 @@ import { Button, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import type { ProductInput } from '../api/products';
 
 interface Props {
+  /**
+   * `create` takes an initial count with the POST. `edit` never sends one
+   * (C-INV-8): stock moves by delta through adjust-stock, and an edit
+   * carrying an absolute count could be queued alongside stepper presses on
+   * the same product and, replayed in parallel with them, land on top of
+   * what they moved. The count is shown, and the stepper is where it changes.
+   */
+  mode: 'create' | 'edit';
   initial?: Partial<ProductInput>;
   submitLabel: string;
   busy: boolean;
   onSubmit: (input: ProductInput) => void;
 }
 
-export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Props) {
+export default function ProductForm({ mode, initial, submitLabel, busy, onSubmit }: Props) {
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '');
@@ -28,7 +36,7 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
       return setError('Price must be a non-negative number');
     }
     if (!category.trim()) return setError('Category is required');
-    if (!stock.trim() || !Number.isInteger(stockNum) || stockNum < 0) {
+    if (mode === 'create' && (!stock.trim() || !Number.isInteger(stockNum) || stockNum < 0)) {
       return setError('Stock must be a whole number');
     }
     setError(null);
@@ -37,7 +45,7 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
       description: description.trim() || null,
       price: priceNum,
       category: category.trim(),
-      stock: stockNum,
+      ...(mode === 'create' ? { stock: stockNum } : {}),
       image_url: imageUrl.trim() || null,
       barcode: barcode.trim() || null,
     });
@@ -65,14 +73,24 @@ export default function ProductForm({ initial, submitLabel, busy, onSubmit }: Pr
       />
       <Text style={styles.label}>Category</Text>
       <TextInput style={styles.input} value={category} onChangeText={setCategory} accessibilityLabel="Category" />
-      <Text style={styles.label}>Stock</Text>
-      <TextInput
-        style={styles.input}
-        value={stock}
-        onChangeText={setStock}
-        keyboardType="number-pad"
-        accessibilityLabel="Stock"
-      />
+      {mode === 'create' ? (
+        <>
+          <Text style={styles.label}>Stock</Text>
+          <TextInput
+            style={styles.input}
+            value={stock}
+            onChangeText={setStock}
+            keyboardType="number-pad"
+            accessibilityLabel="Stock"
+          />
+        </>
+      ) : (
+        // The count the server sent when this screen loaded; not a field, so
+        // it cannot be typed over and sent back stale.
+        <Text style={styles.hint}>
+          Stock: {initial?.stock ?? '—'} — change it with the stepper on the Inventory tab
+        </Text>
+      )}
       <Text style={styles.label}>Image URL</Text>
       <TextInput
         style={styles.input}
@@ -101,4 +119,5 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },
   multiline: { minHeight: 70, textAlignVertical: 'top' },
   error: { color: '#c0392b', marginVertical: 8 },
+  hint: { color: '#555', marginTop: 8 },
 });

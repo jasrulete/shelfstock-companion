@@ -26,6 +26,7 @@ function EditProductContent() {
     <>
       <Stack.Screen options={{ title: product.name }} />
       <ProductForm
+        mode="edit"
         initial={{
           name: product.name,
           description: product.description,
