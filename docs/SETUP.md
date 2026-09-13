@@ -58,7 +58,8 @@ push).
 ## Step 1 — Publish the mobile repo on GitHub ✅ done
 
 Live at **https://github.com/jasrulete/shelfstock-companion** with CI
-green (typecheck + lint + tests run on every PR and push to main). Public
+green (typecheck + lint + tests + a production-dependency audit run on
+every PR and push to main). Public
 repos get unlimited Actions minutes.
 
 ## Step 2 — Update the production database FIRST (one command) — ✅ done 2026-08-04
@@ -242,5 +243,7 @@ The current picture of what is deliberate and what is outstanding lives in
   (`npx eas-cli credentials`), and the backend deploy + migration 002 both
   happened. Server logs print `Expo push send error:` on failures.
 - **CI red on GitHub but green locally:** open the failing step's log —
-  the three commands are exactly `npm run typecheck`, `npm run lint`,
-  `npm test -- --ci`, so whatever fails there reproduces locally.
+  the four commands are exactly `npm run typecheck`, `npm run lint`,
+  `npm test -- --ci` and `npm audit --omit=dev --audit-level=critical`, so
+  whatever fails there reproduces locally — except the audit, which can go
+  red on an advisory published since the last run without any change here.

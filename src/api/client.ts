@@ -20,8 +20,23 @@ export class ApiError extends Error {
 }
 
 let onUnauthorized: (() => void) | null = null;
+// A 401 that arrives while no handler is registered - a persisted write
+// replayed on launch, before AuthProvider's effect has run - is held here and
+// delivered the moment a handler is set, so a dead session cannot linger
+// until the next request happens to be made.
+let unauthorizedPending = false;
+
 export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb;
+  if (cb && unauthorizedPending) {
+    unauthorizedPending = false;
+    cb();
+  }
+}
+
+function notifyUnauthorized() {
+  if (onUnauthorized) onUnauthorized();
+  else unauthorizedPending = true;
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -35,7 +50,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     },
   });
 
-  if (res.status === 401) onUnauthorized?.();
+  if (res.status === 401) notifyUnauthorized();
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

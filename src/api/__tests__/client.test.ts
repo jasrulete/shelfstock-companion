@@ -68,3 +68,21 @@ it('fires onUnauthorized on a 401', async () => {
   await expect(api('/api/orders')).rejects.toBeInstanceOf(ApiError);
   expect(cb).toHaveBeenCalled();
 });
+
+it('holds a 401 that arrives before a handler is registered, and delivers it once one is', async () => {
+  // The offline queue can replay a persisted write on launch, before
+  // AuthProvider's effect has registered its handler. That 401 used to be
+  // dropped on the floor, and the dead session lingered until the next
+  // request happened to be made.
+  respond(401, { error: 'Invalid or expired token' });
+  await expect(api('/api/orders')).rejects.toBeInstanceOf(ApiError);
+
+  const cb = jest.fn();
+  setOnUnauthorized(cb);
+  expect(cb).toHaveBeenCalledTimes(1);
+
+  // Delivered once, not to every handler registered after it.
+  const later = jest.fn();
+  setOnUnauthorized(later);
+  expect(later).not.toHaveBeenCalled();
+});

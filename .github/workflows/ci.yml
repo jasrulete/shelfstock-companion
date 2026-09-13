@@ -18,3 +18,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --ci
+      # Production dependencies only. The bar is `critical`, not the web
+      # repo's `high`, because the Expo SDK's build tooling carries known
+      # high and moderate advisories that only a major SDK bump clears;
+      # raise it to `high` when that lands.
+      - run: npm audit --omit=dev --audit-level=critical
